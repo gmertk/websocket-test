@@ -1,67 +1,45 @@
-var http = require('http');
-var express = require('express');
-var app = express();
-var server = http.createServer(app);
-var socket = require('socket.io');
-var io = socket.listen(server);
-var redis = require('redis');
-var redisClient = redis.createClient();
+var app = require('express')();
+var server = require('http').createServer(app);
+var io = require('socket.io').listen(server);
+var logger = require('winston');
+var argv = require('optimist')
+	.default('hb', true)
+	.argv;
+var connectedUsersCount = 0;
+var messagesPerSecond = 0;
 
-var storeMessage = function(name, data){
-	var message = JSON.stringify({name: name, data: data});
+logger.cli();
+logger.default.transports.console.timestamp = true;
 
-	redisClient.lpush("messages", message, function(err,response){
-		redisClient.ltrim("messages", 0, 10);
-	});
-};
-
-io.sockets.on('connection', function(client){
-
-	client.on('join', function(name){
-		client.set('nickname', name);
-		client.broadcast.emit("add chatter", name);
-
-		redisClient.lrange("messages", 0, -1, function(err, messages){
-			messages = messages.reverse();
-			messages.forEach(function(message){
-				message = JSON.parse(message);
-				client.emit('messages', message.name + ": " + message.data);
-			});
-		});
-
-
-		redisClient.sadd("chatters", name);
-
-		redisClient.smembers('chatters', function(err, names){
-			names.forEach(function(name){
-				client.emit('add chatter', name);
-			});
-		});
-	});
-
-	client.on('messages', function(data){
-		client.get('nickname', function(err,name){
-			client.broadcast.emit("messages", name + ": " + data);
-			storeMessage(name, data);
-		});
-
-	});
-
-	client.on('disconnect', function(name){
-		client.get('nickname', function(err, name){
-			client.broadcast.emit("remove chatter", name);
-
-			redisClient.srem("chatters", name);
-		});
-	});
+server.listen(80, function(){
+	console.log("server started");
 });
-
 
 app.get('/', function (req, res) {
 	res.sendfile(__dirname + '/index.html');
 });
 
+io.set('heartbeats', argv.hb);
+io.set('log level', 1); //0: error, 1:warn, 2:info, 3:debug
+io.set('transports', ['websocket']);
 
-server.listen(8080, function(){
-	console.log("let's get party started!");
+io.sockets.on('connection', function(socket){
+	connectedUsersCount++;
+	socket.on('dataMessage', function(data){
+        messagesPerSecond++;
+		socket.emit('dataMessage', data);
+		//socket.broadcast.emit() //send everyone except this socket
+		//io.sockets.emit() //send all
+	});
+	socket.on('disconnect', function(){
+		connectedUsersCount--;
+	});
 });
+
+
+setTimeout(logStatus, 1000);
+function logStatus() {
+    setTimeout(logStatus, 1000);
+    logger.info("users: " + connectedUsersCount + "\tmessagesPerSecond: " + messagesPerSecond);
+    messagesPerSecond = 0;
+}
