@@ -1,14 +1,15 @@
 //Required modules
 var io = require('socket.io-client');
 var argv = require('optimist')
-	.usage('Usage: $0 -u [num] -t [num]')
-    .demand(['u','t'])
+	.usage('Usage: $0 -u [num] -t [num] -m [num]')
+    .demand(['u','t', 'm'])
     .argv;
 
 //Variables
 var users = argv.u;
-var rampUpTime = argv.t * 1000;
+var rampUpTime = argv.t * 1000; //make it msec
 var newUserTimeout = rampUpTime / users;
+var newMessageTimeout = argv.m; //it is already msec
 
 function createClient(){
 	var data = {
@@ -35,11 +36,16 @@ function createClient(){
 	var socket = io.connect('http://localhost:8080', {'force new connection':true});
 	socket.on('connect', function(){
 		socket.emit('dataMessage', data);
+		setInterval(function(){
+			socket.emit('dataMessage', data);
+		}, newMessageTimeout);
 	});
 
 	socket.on('dataMessage', function(data){
-		socket.emit('dataMessage', data);
+		// socket.emit('dataMessage', data);
+		// console.log(data);
 	});
+
 
 }
 
