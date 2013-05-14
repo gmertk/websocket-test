@@ -10,6 +10,7 @@
     "redis": "",
     "socket.io": "",
     "winston": "",
-    "optimist": ""
+    "optimist": "",
+    "socket.io-client": ""
   }
 }
