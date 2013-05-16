@@ -1,7 +1,7 @@
 //Required modules
 var io = require('socket.io-client');
 var argv = require('optimist')
-	.usage('Usage: $0 -u [num] -t [num] -m [num]')
+	.usage('Usage: $0 -u [num] -t [num] -m [num], -l')
     .demand(['u','t', 'm'])
     .argv;
 
@@ -10,6 +10,13 @@ var users = argv.u;
 var rampUpTime = argv.t * 1000; //make it msec
 var newUserTimeout = rampUpTime / users;
 var newMessageTimeout = argv.m; //it is already msec
+
+var amazonServer = "http://ec2-46-51-132-238.eu-west-1.compute.amazonaws.com:8080";
+var localServer = "http://localhost:8080";
+var server = amazonServer;
+if(argv.l){
+	server = localServer;
+}
 
 function createClient(){
 	var data = {
@@ -33,7 +40,7 @@ function createClient(){
 			}
 		]
 	};
-	var socket = io.connect('http://localhost:8080', {'force new connection':true});
+	var socket = io.connect(server, {'force new connection':true});
 	socket.on('connect', function(){
 		socket.emit('dataMessage', data);
 		setInterval(function(){
