@@ -51,8 +51,8 @@ setInterval(function() {
   // call a system command (ps) to get current process resources utilization
   var child = exec(getCpuCommand, function(error, stdout, stderr) {
     var s = stdout.split(/\s+/);
-    var cpu = s[3];
-    var memory = s[4];
+    var cpu = s[2];
+    var memory = s[3];
 
     var l = [
       'U: ' + connectedUsersCount,
