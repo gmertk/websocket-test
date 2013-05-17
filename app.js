@@ -3,6 +3,7 @@ var io = require('socket.io').listen(8080);
 var logger = require('winston');
 var argv = require('optimist').argv;
 var exec = require('child_process').exec; 
+require("http").globalAgent.maxSockets = Infinity;
 
 //Variables
 var connectedUsersCount = 0;

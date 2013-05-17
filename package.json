@@ -11,6 +11,7 @@
     "socket.io": "",
     "winston": "",
     "optimist": "",
-    "socket.io-client": ""
+    "socket.io-client": "",
+    "underscore": ""
   }
 }
