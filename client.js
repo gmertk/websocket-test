@@ -1,114 +1,131 @@
 //Required modules
 var io = require('socket.io-client');
-var _  = require("underscore");
-var argv = require('optimist')
-	.usage('Usage: $0 -u [num] -t [num] -m [num], -l')
-    .demand(['u','t', 'm'])
-    .argv;
+var _ = require("underscore");
+var fs = require('fs');
+var argv = require('optimist').argv;
 require("http").globalAgent.maxSockets = Infinity;
 
 //Variables
-var numberOfUsers = argv.u;
-var rampUpTime = argv.t;
-var newUserTimeout = rampUpTime / numberOfUsers;
-var newMessageTimeout = argv.m;
-var intervalId;
-var userCount = 0;
-var totalRoundTrip = 0;
-var numberOfRoundTrip = 0;
+var concurrencyLevels = [500];//, 1000, 1500, 2000];
 var amazonServer = "http://ec2-46-51-132-238.eu-west-1.compute.amazonaws.com:8080";
 var localServer = "http://localhost:8080";
-var server = amazonServer;
-var times = [];
-var rt = 10;
-if(argv.l){
-	server = localServer;
-}
-function done(){
-	console.log('Min: ' + roundNumber(_.min(times) / rt, 2)  + 'ms');
-	console.log('Mean: ' + roundNumber(_.reduce(times, function(memo, num) {
-		return memo + num;
-	}, 0) / times.length / rt, 2) + 'ms');
-	console.log('Max: ' + roundNumber(_.max(times) /rt, 2) + 'ms');
-}
+var server = argv.l ? localServer : amazonServer;
+var i = 0;
+var clients = [];
+var concurrency;
+var rampupTime = 1000;
+var roundTripTimes = [];
+var newMessageIntervalPerClient = 1000;
+var funcId;
 
-function roundNumber(num, prec) {
-  var mul = Math.pow(10, prec);
-  return Math.round(num * mul) / mul;
-}
-function test(){
-	createClient(userCount);
-	if(userCount === numberOfUsers-1){
-		// setInterval(function(){
-		// 	console.log("Average roundtrip " + roundNumber(totalRoundTrip / numberOfRoundTrip, 2)+ " for " + totalRoundTrip + " roundtrips" );
-		// }, 1000);
+var processRoundtrips = function(){
+	var stats = [];
+	for (var i = 0; i < roundTripTimes.length; i++) {
+		stats.push(	roundTripTimes[i] );
 	}
-	else{
-		userCount++;
-	}
-}
+	return stats;
+};
 
-function createClient(userId){
-	var data = {
-		'time' : "",
-		'id' : "someUniqueId",
-		'name': "deviceName",
-		'data' : [
-			{	"current_value" : "20",
-				"id" : "0",
-				"max_value" : "30",
-				"min_value" : "0",
-				"unit": "celcius",
-				"tags": ["heat", "sensor"]
-			},
-			{	"current_value" : "1",
-				"id" : "1",
-				"max_value" : "1",
-				"min_value" : "0",
-				"unit": "",
-				"tags": ["button"]
-			}
-		]
+var createClient = (function () {
+	var countId = 0;
+
+	return function(){
+		var id = countId++;
+
+		var socket = io.connect(server, {'force new connection':true});//, 'transports': ['websocket']});
+		var send = function(){
+			var data = {
+				'time' : "",
+				'id' : id,
+				'name': "deviceName",
+				'data' : [
+					{	"current_value" : "20",
+						"id" : "0",
+						"max_value" : "30",
+						"min_value" : "0",
+						"unit": "celcius",
+						"tags": ["heat", "sensor"]
+					},
+					{	"current_value" : "1",
+						"id" : "1",
+						"max_value" : "1",
+						"min_value" : "0",
+						"unit": "",
+						"tags": ["button"]
+					}
+				]
+			};
+			data.time = Date.now();
+			socket.emit('dataMessage', data);
+		};
+
+		socket.on('connect', function(){
+			var schedule = function(){
+				send();
+				setTimeout(schedule, newMessageIntervalPerClient);
+			};
+
+			//console.log(id + " connected");
+			schedule();
+
+			socket.on('dataMessage', function(data){
+				var rt = Date.now() - data.time;
+				roundTripTimes.push(id + ": " + rt);
+			});
+			socket.on('disconnect', function(){
+				console.log(id + " disconnected!!");
+			});
+		});
+
+		clients.push(socket);
 	};
-	var roundtrip = 0;
-	var elapsedRoundtrip = 0;
-	var socket = io.connect(server, {'force new connection':true});
+}());
 
-	socket.on('connect', function(){
-		data.time = Date.now();
-		socket.emit('dataMessage', data);
-	});
-	socket.on('dataMessage', function(data){
-		var elapsed = Date.now() - data.time;
-
-		if(userCount === numberOfUsers-1){
-			elapsedRoundtrip += elapsed;
-			roundtrip++;
-			if(roundtrip === rt){
-
-				times.push(elapsedRoundtrip);
-				// console.log("Elapsed time " + elapsedRoundtrip +
-				// 	" for number of " + rt +
-				// 	" for id " + userId);
+var makeConnections = function(conc){
+	var i = 0;
+	var interval = rampupTime / conc;
+	for(i = 0; i < conc; i++){
+		setTimeout(createClient, i * interval);
+	}
+};
+var updateMessageInterval = function(){
+	var stats = processRoundtrips();
+	var interval = newMessageIntervalPerClient;
+	var data = stats.join('\n');
+	fs.writeFile("./test"+ concurrency + "-" + interval, data, function(err) {
+		if(err) {
+			console.log(err);
+		} else {
+			console.log("The file was saved!");
+			roundTripTimes = [];
+			newMessageIntervalPerClient -= 100;
+			if(newMessageIntervalPerClient > 0)
+				setTimeout(updateMessageInterval,10000);
 			}
-		}
-		if(times.length === numberOfUsers-1){
-			done();
-		}
-		else if(times.length < numberOfUsers-1) {
-			setTimeout(function(){
-				data.time = Date.now();
-				socket.emit('dataMessage', data);
-			}, newMessageTimeout);
 
-		}
 	});
-	socket.on('disconnect', function(){
-		console.log(userId + " disconnected!!");
-	});
+};
 
-}
+(function(){
+	for(i = 0; i < concurrencyLevels.length; i++){
+		concurrency = concurrencyLevels[i];
+		postTestTimeout = false;
+		makeConnections(concurrency);
 
-for(var i=0; i<numberOfUsers; i++) {
-	setTimeout(test, i * newUserTimeout);
-}
+		funcId = setTimeout(updateMessageInterval,10000);
+		// for(var j= 0; j < clients.length; j++){
+		// 	clients[j].disconnect('unauthorized');
+		// }
+
+		//console.dir(stats);
+		// for (var key in stats) {
+		// 	if (stats.hasOwnProperty(key)) {
+		// 		var s = stats[key];
+		// 		
+		// 	}
+		// }
+	}
+}());
+
+
+

@@ -2,8 +2,8 @@
 var io = require('socket.io').listen(8080);
 var logger = require('winston');
 var argv = require('optimist').argv;
-var exec = require('child_process').exec; 
-require("http").globalAgent.maxSockets = Infinity;
+var exec = require('child_process').exec;
+//require("http").globalAgent.maxSockets = Infinity;
 
 //Variables
 var connectedUsersCount = 0;
@@ -16,6 +16,7 @@ console.log(process.pid);
 //Logger options
 logger.cli();
 logger.default.transports.console.timestamp = true;
+logger.add(logger.transports.File, { filename: 'somefile.log'});
 
 //Socket.io options
 io.set('heartbeat interval', 40);
