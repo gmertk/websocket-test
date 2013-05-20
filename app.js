@@ -16,8 +16,9 @@ console.log(process.pid);
 //Logger options
 logger.cli();
 logger.default.transports.console.timestamp = true;
-logger.add(logger.transports.File, { filename: 'somefile.log'});
-
+if(argv.o){
+  logger.add(logger.transports.File, { filename: 'somefile.log'});
+}
 //Socket.io options
 io.set('heartbeat interval', 40);
 // io.set('close timeout', 120);

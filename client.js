@@ -17,11 +17,13 @@ var rampupTime = 1000;
 var roundTripTimes = [];
 var newMessageIntervalPerClient = 1000;
 var funcId;
+var intervalToUpdateMessage = 15000;
 
 var processRoundtrips = function(){
 	var stats = [];
-	for (var i = 0; i < roundTripTimes.length; i++) {
-		stats.push(	roundTripTimes[i] );
+	var length = roundTripTimes.length;
+	for (var i = 0; i < length; i++) {
+		stats.push(	roundTripTimes[i].rt );
 	}
 	return stats;
 };
@@ -56,6 +58,7 @@ var createClient = (function () {
 				]
 			};
 			data.time = Date.now();
+			data.
 			socket.emit('dataMessage', data);
 		};
 
@@ -70,7 +73,7 @@ var createClient = (function () {
 
 			socket.on('dataMessage', function(data){
 				var rt = Date.now() - data.time;
-				roundTripTimes.push(id + ": " + rt);
+				roundTripTimes.push({'id': id, 'rt': rt});
 			});
 			socket.on('disconnect', function(){
 				console.log(id + " disconnected!!");
@@ -88,11 +91,19 @@ var makeConnections = function(conc){
 		setTimeout(createClient, i * interval);
 	}
 };
+var summary = function(arr){
+	var sum = _.reduce(arr, function(memo, num){ return memo + num; }, 0);
+	var average = sum / arr.length;
+	return "Average: " + average;
+};
 var updateMessageInterval = function(){
 	var stats = processRoundtrips();
 	var interval = newMessageIntervalPerClient;
-	var data = stats.join('\n');
-	fs.writeFile("./test"+ concurrency + "-" + interval, data, function(err) {
+	var outputSummary = summary(stats);
+
+	var data = outputSummary + "\n" + stats.join('\n');
+	var fileName = "./test"+ concurrency + "-" + interval;
+	fs.writeFile(fileName, data, function(err) {
 		if(err) {
 			console.log(err);
 		} else {
@@ -100,9 +111,8 @@ var updateMessageInterval = function(){
 			roundTripTimes = [];
 			newMessageIntervalPerClient -= 100;
 			if(newMessageIntervalPerClient > 0)
-				setTimeout(updateMessageInterval,10000);
+				setTimeout(updateMessageInterval, intervalToUpdateMessage);
 			}
-
 	});
 };
 
@@ -112,7 +122,7 @@ var updateMessageInterval = function(){
 		postTestTimeout = false;
 		makeConnections(concurrency);
 
-		funcId = setTimeout(updateMessageInterval,10000);
+		setTimeout(updateMessageInterval, intervalToUpdateMessage);
 		// for(var j= 0; j < clients.length; j++){
 		// 	clients[j].disconnect('unauthorized');
 		// }
