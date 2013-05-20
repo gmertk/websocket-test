@@ -15,10 +15,9 @@ var clients = [];
 var concurrency;
 var rampupTime = 1000;
 var roundTripTimes = [];
-var newMessageIntervalPerClient = 1000;
+var newMessageIntervalPerClient = argv.t;
 var funcId;
-var intervalToUpdateMessage = 15000;
-
+var intervalToUpdateMessage = 30000 + rampupTime;
 var processRoundtrips = function(){
 	var stats = [];
 	var length = roundTripTimes.length;
@@ -41,14 +40,14 @@ var createClient = (function () {
 				'id' : id,
 				'name': "deviceName",
 				'data' : [
-					{	"current_value" : "20",
+					{	"current_value" : Math.floor(Math.random() * 31),
 						"id" : "0",
 						"max_value" : "30",
 						"min_value" : "0",
 						"unit": "celcius",
 						"tags": ["heat", "sensor"]
 					},
-					{	"current_value" : "1",
+					{	"current_value" : Math.floor(Math.random() * 2),
 						"id" : "1",
 						"max_value" : "1",
 						"min_value" : "0",
@@ -58,7 +57,6 @@ var createClient = (function () {
 				]
 			};
 			data.time = Date.now();
-			data.
 			socket.emit('dataMessage', data);
 		};
 
@@ -73,7 +71,8 @@ var createClient = (function () {
 
 			socket.on('dataMessage', function(data){
 				var rt = Date.now() - data.time;
-				roundTripTimes.push({'id': id, 'rt': rt});
+				if(countId >= concurrency-1)
+					roundTripTimes.push({'id': id, 'rt': rt});
 			});
 			socket.on('disconnect', function(){
 				console.log(id + " disconnected!!");
@@ -108,11 +107,8 @@ var updateMessageInterval = function(){
 			console.log(err);
 		} else {
 			console.log("The file was saved!");
-			roundTripTimes = [];
-			newMessageIntervalPerClient -= 100;
-			if(newMessageIntervalPerClient > 0)
-				setTimeout(updateMessageInterval, intervalToUpdateMessage);
-			}
+			process.exit();
+		}
 	});
 };
 
