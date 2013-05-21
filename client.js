@@ -2,17 +2,19 @@
 var io = require('socket.io-client');
 var _ = require("underscore");
 var fs = require('fs');
-var argv = require('optimist').argv;
+var argv = require('optimist')
+	.usage('Usage: $0 -t [num] -c [num]')
+    .demand(['t','c'])
+    .argv;
 require("http").globalAgent.maxSockets = Infinity;
 
 //Variables
-var concurrencyLevels = [500];//, 1000, 1500, 2000];
 var amazonServer = "http://ec2-46-51-132-238.eu-west-1.compute.amazonaws.com:8080";
 var localServer = "http://localhost:8080";
 var server = argv.l ? localServer : amazonServer;
 var i = 0;
 var clients = [];
-var concurrency;
+var concurrency = argv.c;
 var rampupTime = 1000;
 var roundTripTimes = [];
 var newMessageIntervalPerClient = argv.t;
@@ -93,44 +95,44 @@ var makeConnections = function(conc){
 var summary = function(arr){
 	var sum = _.reduce(arr, function(memo, num){ return memo + num; }, 0);
 	var average = sum / arr.length;
-	return "Average: " + average;
+	var min = _.min(arr);
+	var max = _.max(arr);
+	return average + "," + min + "," + max;
 };
 var updateMessageInterval = function(){
 	var stats = processRoundtrips();
 	var interval = newMessageIntervalPerClient;
 	var outputSummary = summary(stats);
 
-	var data = outputSummary + "\n" + stats.join('\n');
-	var fileName = "./test"+ concurrency + "-" + interval;
-	fs.writeFile(fileName, data, function(err) {
-		if(err) {
+	var fileName = 'test'+ concurrency + '.txt';
+	var data = [concurrency, interval, outputSummary].join(',') + '\n';
+	fs.appendFile(fileName, data, function (err) {
+		if(err){
 			console.log(err);
-		} else {
-			console.log("The file was saved!");
+		}
+		else{
+			console.log(fileName + ' written.');
 			process.exit();
 		}
 	});
 };
 
 (function(){
-	for(i = 0; i < concurrencyLevels.length; i++){
-		concurrency = concurrencyLevels[i];
-		postTestTimeout = false;
-		makeConnections(concurrency);
+	postTestTimeout = false;
+	makeConnections(concurrency);
+	setTimeout(updateMessageInterval, intervalToUpdateMessage);
+	// for(var j= 0; j < clients.length; j++){
+	// 	clients[j].disconnect('unauthorized');
+	// }
 
-		setTimeout(updateMessageInterval, intervalToUpdateMessage);
-		// for(var j= 0; j < clients.length; j++){
-		// 	clients[j].disconnect('unauthorized');
-		// }
+	//console.dir(stats);
+	// for (var key in stats) {
+	// 	if (stats.hasOwnProperty(key)) {
+	// 		var s = stats[key];
+	// 		
+	// 	}
+	// }
 
-		//console.dir(stats);
-		// for (var key in stats) {
-		// 	if (stats.hasOwnProperty(key)) {
-		// 		var s = stats[key];
-		// 		
-		// 	}
-		// }
-	}
 }());
 
 

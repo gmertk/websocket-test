@@ -17,7 +17,7 @@ console.log(process.pid);
 logger.cli();
 logger.default.transports.console.timestamp = true;
 if(argv.o){
-  logger.add(logger.transports.File, { filename: 'somefile.log'});
+  logger.add(logger.transports.File, { filename:  Date.now() + '.txt'});
 }
 //Socket.io options
 io.set('heartbeat interval', 40);
@@ -69,4 +69,4 @@ setInterval(function() {
     countReceived = 0;
   });
 
-}, 1000);
+}, 5000);
