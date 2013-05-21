@@ -69,4 +69,4 @@ setInterval(function() {
     countReceived = 0;
   });
 
-}, 5000);
+}, 1000);
