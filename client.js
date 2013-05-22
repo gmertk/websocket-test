@@ -31,7 +31,7 @@ var processRoundtrips = function(){
 
 var createClient = (function () {
 	var countId = 0;
-
+	var numberOfFailed = 0;
 	return function(){
 		var id = countId++;
 
@@ -78,6 +78,11 @@ var createClient = (function () {
 			});
 			socket.on('disconnect', function(){
 				console.log(id + " disconnected!!");
+			});
+
+			socket.on('reconnect_failed', function(){
+				numberOfFailed++;
+				console.log("reconnect_failed for: " + id + ", total failed connections: " + numberOfFailed);
 			});
 		});
 

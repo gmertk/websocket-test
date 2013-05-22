@@ -23,7 +23,7 @@ if(argv.o){
 io.set('heartbeat interval', 40);
 // io.set('close timeout', 120);
 //io.set('heartbeat timeout', 60);
-io.set('log level', 0); //0: error, 1:warn, 2:info, 3:debug
+io.set('log level', 1); //0: error, 1:warn, 2:info, 3:debug
 io.set('transports', ['websocket']);
 
 io.sockets.on('connection', function(socket){
@@ -47,26 +47,27 @@ io.sockets.on('connection', function(socket){
 //     messagesPerSecond = 0;
 // }
 
-setInterval(function() {
-  var auxReceived = Math.round(countReceived / connectedUsersCount);
-  var msuReceived = (connectedUsersCount > 0 ? auxReceived : 0);
+if(argv.p){
+  setInterval(function() {
+    var auxReceived = Math.round(countReceived / connectedUsersCount);
+    var msuReceived = (connectedUsersCount > 0 ? auxReceived : 0);
 
-  // call a system command (ps) to get current process resources utilization
-  var child = exec(getCpuCommand, function(error, stdout, stderr) {
-    var s = stdout.split(/\s+/);
-    var cpu = s[2];
-    var memory = s[3];
+    // call a system command (ps) to get current process resources utilization
+    var child = exec(getCpuCommand, function(error, stdout, stderr) {
+      var s = stdout.split(/\s+/);
+      var cpu = s[2];
+      var memory = s[3];
 
-    var l = [
-      'U: ' + connectedUsersCount,
-      'MR/S: ' + countReceived,
-      'MR/S/U: ' + msuReceived,
-      'CPU: ' + cpu,
-      'Mem: ' + memory
-    ];
+      var l = [
+        'U: ' + connectedUsersCount,
+        'MR/S: ' + countReceived,
+        'MR/S/U: ' + msuReceived,
+        'CPU: ' + cpu,
+        'Mem: ' + memory
+      ];
 
-    logger.info(l.join(',\t'));
-    countReceived = 0;
-  });
-
-}, 1000);
+      logger.info(l.join(',\t'));
+      countReceived = 0;
+    });
+  }, 1000);
+}
