@@ -52,7 +52,17 @@ if(argv.p){
     var auxReceived = Math.round(countReceived / connectedUsersCount);
     var msuReceived = (connectedUsersCount > 0 ? auxReceived : 0);
 
+      var l = [
+        'U: ' + connectedUsersCount,
+        'MR/S: ' + countReceived,
+        'MR/S/U: ' + msuReceived
+      ];
+
+      logger.info(l.join(',\t'));
+      countReceived = 0;
+
     // call a system command (ps) to get current process resources utilization
+    /** /
     var child = exec(getCpuCommand, function(error, stdout, stderr) {
       var s = stdout.split(/\s+/);
       var cpu = s[2];
@@ -68,6 +78,7 @@ if(argv.p){
 
       logger.info(l.join(',\t'));
       countReceived = 0;
-    });
+    //});
+/**/
   }, 1000);
 }

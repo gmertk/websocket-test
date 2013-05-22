@@ -19,7 +19,10 @@ var rampupTime = 1000;
 var roundTripTimes = [];
 var newMessageIntervalPerClient = argv.t;
 var funcId;
-var intervalToUpdateMessage = 30000 + rampupTime;
+var timeoutTest = 30000 + rampupTime;
+var isTesting;
+var numberOfDone = 0;
+var numberOfConnected = 0;
 var processRoundtrips = function(){
 	var stats = [];
 	var length = roundTripTimes.length;
@@ -63,9 +66,15 @@ var createClient = (function () {
 		};
 
 		socket.on('connect', function(){
+			numberOfConnected++;
 			var schedule = function(){
-				send();
-				setTimeout(schedule, newMessageIntervalPerClient);
+				if(isTesting){
+					send();
+					setTimeout(schedule, newMessageIntervalPerClient);
+				}
+				else{
+					numberOfDone++;
+				}
 			};
 
 			//console.log(id + " connected");
@@ -77,6 +86,7 @@ var createClient = (function () {
 					roundTripTimes.push({'id': id, 'rt': rt});
 			});
 			socket.on('disconnect', function(){
+				numberOfConnected--;
 				console.log(id + " disconnected!!");
 			});
 
@@ -105,10 +115,12 @@ var summary = function(arr){
 	return average + "," + min + "," + max;
 };
 var updateMessageInterval = function(){
+	// if(numberOfDone == concurrency - 1){
+
+	// }
 	var stats = processRoundtrips();
 	var interval = newMessageIntervalPerClient;
 	var outputSummary = summary(stats);
-
 	var fileName = 'test'+ concurrency + '.txt';
 	var data = [concurrency, interval, outputSummary].join(',') + '\n';
 	fs.appendFile(fileName, data, function (err) {
@@ -121,11 +133,17 @@ var updateMessageInterval = function(){
 		}
 	});
 };
+var finishTest = function(){
+	isTesting = false;
+	console.log("testing finished");
+	setTimeout(updateMessageInterval, 60000);
+};
+
 
 (function(){
-	postTestTimeout = false;
+	isTesting = true;
 	makeConnections(concurrency);
-	setTimeout(updateMessageInterval, intervalToUpdateMessage);
+	setTimeout(finishTest, timeoutTest);
 	// for(var j= 0; j < clients.length; j++){
 	// 	clients[j].disconnect('unauthorized');
 	// }
