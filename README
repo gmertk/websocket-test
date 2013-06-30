@@ -1,1 +1,5 @@
 WebSocket Scalability Tests
+TODO
+Jun03
+try socket.io 0.8.7 to disable heartbeats. check if numbers change.
+
