@@ -1,20 +1,44 @@
 //Required Modules
-var io = require('socket.io').listen(8080);
+var config = require('./config').config;
 var logger = require('winston');
 var argv = require('optimist').argv;
 var exec = require('child_process').exec;
-var RedisStore = require('socket.io/lib/stores/redis');
-var redis  = require('socket.io/node_modules/redis');
-//require("http").globalAgent.maxSockets = Infinity;
-var redisPort = ;
-var redisUrl = ;
-var pub = redis.createClient(redisPort, redisUrl);
-var sub = redis.createClient(redisPort, redisUrl);
-var store = redis.createClient(redisPort, redisUrl);
-pub.auth('pass', function(){console.log("adentro! pub");});
-sub.auth('pass', function(){console.log("adentro! sub");});
-store.auth('pass', function(){console.log("adentro! store");});
+var http = require('http');
+http.globalAgent.maxSockets = Infinity;
+var sockjs = require('sockjs');
 
+var broadcast = {};
+
+var sjs_broadcast = sockjs.createServer();
+sjs_broadcast.on('connection', function(conn) {
+    console.log('    [+] broadcast open ' + conn);
+    broadcast[conn.id] = conn;
+    conn.on('close', function() {
+      delete broadcast[conn.id];
+      console.log('    [-] broadcast close' + conn);
+    });
+    conn.on('data', function(m) {
+      console.log('    [-] broadcast message', m);
+      for(var id in broadcast) {
+        broadcast[id].write(m);
+      }
+    });
+});
+
+var server = http.createServer();
+server.addListener('request', function(req, res) {
+    res.setHeader('content-type', 'text/plain');
+    res.writeHead(404);
+    res.end('404 - Nothing here (via sockjs-node test_server)');
+});
+server.addListener('upgrade', function(req, res){
+    res.end();
+});
+
+sjs_broadcast.installHandlers(server, {prefix:'/'});
+
+console.log(" [*] Listening on", config.host + ':' + config.port);
+server.listen(config.port, config.host);
 
 //Variables
 var connectedUsersCount = 0;
@@ -29,29 +53,8 @@ logger.default.transports.console.timestamp = true;
 if(argv.o){
   logger.add(logger.transports.File, { filename:  Date.now() + '.txt'});
 }
-//Socket.io options
-//io.disable('heartbeats');
-io.set('heartbeat interval', 40);
-// io.set('close timeout', 120);
-//io.set('heartbeat timeout', 60);
-io.set('log level', 1); //0: error, 1:warn, 2:info, 3:debug
-io.set('transports', ['websocket']);
-io.set('store', new RedisStore({redisPub:pub, redisSub:sub, redisClient:store}));
 
 
-io.sockets.on('connection', function(socket){
-	connectedUsersCount++;
-	socket.on('dataMessage', function(data){
-        messagesPerSecond++;
-		socket.emit('dataMessage', data);
-		//socket.broadcast.emit() //send everyone except this socket
-		//io.sockets.emit() //send all
-		countReceived++;
-	});
-	socket.on('disconnect', function(){
-		connectedUsersCount--;
-	});
-});
 
 // setTimeout(logStatus, timeoutLogStatus);
 // function logStatus() {
