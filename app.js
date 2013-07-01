@@ -9,16 +9,19 @@ var sockjs = require('sockjs');
 
 var broadcast = {};
 
-var sjs_broadcast = sockjs.createServer();
+var sjs_broadcast = sockjs.createServer(config.server_opts);
 sjs_broadcast.on('connection', function(conn) {
+    connectedUsersCount++;
     console.log('    [+] broadcast open ' + conn);
     broadcast[conn.id] = conn;
     conn.on('close', function() {
       delete broadcast[conn.id];
+      connectedUsersCount--;
       console.log('    [-] broadcast close' + conn);
     });
     conn.on('data', function(m) {
       console.log('    [-] broadcast message', m);
+      countReceived++;
       for(var id in broadcast) {
         broadcast[id].write(m);
       }
