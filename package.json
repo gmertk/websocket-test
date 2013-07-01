@@ -8,6 +8,7 @@
   "dependencies": {
     "winston": "",
     "optimist": "",
-    "sockjs": "*"
+    "redis": "",
+    "websocket":""
   }
 }

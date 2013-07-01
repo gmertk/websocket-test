@@ -5,6 +5,10 @@ var exec = require('child_process').exec;
 var http = require('http');
 http.globalAgent.maxSockets = Infinity;
 var WebSocketServer = require('websocket').server;
+var redis   = require('redis');
+
+var port = argv.p || 6379;
+var host = argv.h || "127.0.0.1";
 
 var server = http.createServer(function(request, response) {
     console.log((new Date()) + ' Received request for ' + request.url);
@@ -14,6 +18,8 @@ var server = http.createServer(function(request, response) {
 server.listen(8080, function() {
     console.log((new Date()) + ' Server is listening on port 8080');
 });
+
+var publisher = redis.createClient(port, host);
 
 wsServer = new WebSocketServer({
     httpServer: server,
@@ -26,36 +32,45 @@ wsServer = new WebSocketServer({
 });
 
 function originIsAllowed(origin) {
-  // put logic here to detect whether the specified origin is allowed.
-  return true;
+    // put logic here to detect whether the specified origin is allowed.
+    return true;
 }
 
 wsServer.on('request', function(request) {
     if (!originIsAllowed(request.origin)) {
-      // Make sure we only accept requests from an allowed origin
-      request.reject();
-      console.log((new Date()) + ' Connection from origin ' + request.origin + ' rejected.');
-      return;
+        // Make sure we only accept requests from an allowed origin
+        request.reject();
+        console.log((new Date()) + ' Connection from origin ' + request.origin + ' rejected.');
+        return;
     }
 
+    var subscriber = redis.createClient(port, host);
 
     var connection = request.accept('echo-protocol', request.origin);
     console.log((new Date()) + ' Connection accepted.');
     connectedUsersCount++;
+
+    subscriber.on("message", function(channel, message){
+        connection.sendUTF(channel + "=" + message);
+    });
+
     connection.on('message', function(message) {
         countReceived++;
         if (message.type === 'utf8') {
             console.log('Received Message: ' + message.utf8Data);
-            connection.sendUTF(message.utf8Data);
-        }
-        else if (message.type === 'binary') {
-            console.log('Received Binary Message of ' + message.binaryData.length + ' bytes');
-            connection.sendBytes(message.binaryData);
+            var data = message.utf8Data.split("=");
+            if(data[0] === "client"){
+              subscriber.subscribe.apply(subscriber, data[1].split(":"));
+            }
+            else if (data[0] === "publisher"){
+              publisher.publish(data[1], data[2]);
+            }
         }
     });
     connection.on('close', function(reasonCode, description) {
         connectedUsersCount--;
-        console.log((new Date()) + ' Peer ' + connection.remoteAddress + ' disconnected.');
+        console.log((new Date()) + ' Peer disconnected.');
+        subscriber.end();
     });
 });
 
