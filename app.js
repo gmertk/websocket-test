@@ -97,7 +97,7 @@ if(argv.o){
 //     messagesPerSecond = 0;
 // }
 
-if(argv.p){
+if(argv.o){
   setInterval(function() {
     var auxReceived = Math.round(countReceived / connectedUsersCount);
     var msuReceived = (connectedUsersCount > 0 ? auxReceived : 0);
