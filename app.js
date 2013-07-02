@@ -51,19 +51,19 @@ wsServer.on('request', function(request) {
     connectedUsersCount++;
 
     subscriber.on("message", function(channel, message){
-        connection.sendUTF(channel + "=" + message);
+        connection.sendUTF(JSON.stringify({channel:channel, message:message}));
     });
 
     connection.on('message', function(message) {
         countReceived++;
         if (message.type === 'utf8') {
             console.log('Received Message: ' + message.utf8Data);
-            var data = message.utf8Data.split("=");
-            if(data[0] === "client"){
-              subscriber.subscribe.apply(subscriber, data[1].split(":"));
+            var data = JSON.parse(message.utf8Data);
+            if(data.whois === "client"){
+              subscriber.subscribe.apply(subscriber, data.subjectsToSubscribe);
             }
-            else if (data[0] === "publisher"){
-              publisher.publish(data[1], data[2]);
+            else if (data.whois === "publisher"){
+              publisher.publish(data.subject, data.message);
             }
         }
     });

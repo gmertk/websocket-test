@@ -7,54 +7,85 @@ var numberOfSubjectsPerClient = argv.s;
 var subjects = ['fun', 'movie', 'holiday', 'sport', 'tech', 'news',
                 'programming','computers', 'phones', 'relationships'];
 var stats = [];
+var countStats = 0;
+var connectionsFailed = 0;
+var connectionsClosed = 0;
+var waitingTimeBetweenConn = 10;
+start();
 
-for (var i = 0; i < n; i++) {
-    (function(index){
-        var client = new WebSocketClient();
-        var randomSubjects = getRandomSubjects();
-
-        client.on('connect', function(connection) {
-            console.log('WebSocket client connected' + index);
-            connection.on('error', function(error) {
-                console.log("Connection Error: " + error.toString());
-            });
-            connection.on('close', function() {
-                console.log('Connection Closed');
-            });
-            connection.on('message', function(message) {
-                if (message.type === 'utf8') {
-                    console.log("Received: '" + message.utf8Data + "'");
-                    var data = message.utf8Data.split("=");
-                    var elapsed = (+new Date() - data[1]);
-                    console.log(i + "=" + data[0] + "=" + elapsed);
-                    stats.push(elapsed);
-                }
-            });
-
-            connection.sendUTF("client="+randomSubjects.join(":"));
-        });
-
-        client.on('connectFailed', function(error) {
-            console.log('Connect Error: ' + error.toString());
-        });
-
-        client.connect('ws://localhost:8080/', 'echo-protocol');
-    })(i);
+var id = 0;
+function start(){
+    // for (var i = 0; i < n; i++) {
+    //    createClient(i);
+    // }
+    setTimeout(function(){
+        if(id < n){
+            createClient(id);
+            start();
+            id++;
+        }
+    }, waitingTimeBetweenConn);
 }
 
-setInterval(function(){
-    var max = Math.max.apply(null, stats);
-    var min = Math.min.apply(null, stats);
-    var total = stats.reduce(function(previousValue, currentValue, index, array){
-      return previousValue + currentValue;
-    }, 0);
-    var mean = total / stats.length;
-    var data = [min, max, mean].join(" ") + "\n";
-    fs.appendFile('stats.txt', data , function (err) {
-      if (err) throw err;
-        console.log(data + "was appended to file!");
+function createClient(index){
+    var client = new WebSocketClient();
+    var randomSubjects = getRandomSubjects();
+    client.on('connect', function(connection) {
+        console.log('WebSocket client connected ' + index);
+        connection.on('error', function(error) {
+            console.log("Connection error on client "+ index + ". " + error.toString());
+        });
+        connection.on('close', function() {
+            connectionsClosed++;
+            console.log('Connection Closed with description ' + connection.closeDescription);
+        });
+        connection.on('message', function(message) {
+            if (message.type === 'utf8') {
+                //console.log(index + "=" + message.utf8Data);
+                var data = JSON.parse(message.utf8Data);
+                var elapsed = +new Date() - data.message;
+                stats.push(elapsed);
+            }
+        });
+        connection.sendUTF(JSON.stringify({whois:"client", subjectsToSubscribe:randomSubjects}));
     });
-}, 5000);
+
+    client.on('connectFailed', function(error) {
+        connectionsFailed++;
+        console.log('Connect failed on client ' + index + ". " + error.toString());
+    });
+
+    client.connect('ws://localhost:8080/', 'echo-protocol');
+}
+
+setTimeout(function log(){
+    if(stats.length > 0){
+        var max = stats.reduce(function (p, v) {
+            return ( p > v ? p : v );
+        });
+        var min = stats.reduce(function (p, v) {
+            return ( p < v ? p : v );
+        });
+        var total = stats.reduce(function(previousValue, currentValue, index, array){
+          return previousValue + currentValue;
+        }, 0);
+        var mean = total / stats.length;
+        var data = [n, mean, max, min, stats.length, connectionsClosed, connectionsFailed].join(" ") + "\n";
+        fs.appendFile('stats.txt', data , function (err) {
+            if (err) throw err;
+                console.log(data + "was appended to file!");
+
+            if((connectionsFailed === 0) && (connectionsClosed === 0) && (countStats < 6)){
+                countStats++;
+                setTimeout(log, 5000);
+            }
+            else{
+                console.log("failed: " + connectionsFailed + "closed: " + connectionsClosed);
+                process.exit();
+            }
+        });
+    }
+}, waitingTimeBetweenConn * n);
 
 function getRandomSubjects(){
     var randomSubjects = [];

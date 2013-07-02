@@ -25,7 +25,11 @@ client.on('connect', function(connection) {
         if (connection.connected) {
             for(var i = 0; i < f; i++){
                 var subject = subjects[getRandomInt(0, subjects.length-1)];
-                connection.sendUTF("publisher=" + subject + "=" + (+new Date()) );
+                connection.sendUTF(JSON.stringify({
+                    subject: subject,
+                    message: +new Date(),
+                    whois: "publisher"
+                }));
             }
             setTimeout(updateSubjects, 1000);
         }
