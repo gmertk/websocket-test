@@ -1,9 +1,14 @@
-var argv = require('optimist').demand(['f']).argv;
+var argv = require('optimist').demand(['f', 'j']).argv;
 var WebSocketClient = require('websocket').client;
 
 var f = argv.f;
-var subjects = ['fun', 'movie', 'holiday', 'sport', 'tech', 'news',
-                'programming','computers', 'phones', 'relationships'];
+var subjects = [];
+for (var x = 0; x < argv.j; x++){
+    subjects.push('subject'+x);
+}
+var host = argv.l ? "localhost" : "ec2-54-228-39-121.eu-west-1.compute.amazonaws.com";
+
+
 
 var client = new WebSocketClient();
 
@@ -41,7 +46,7 @@ client.on('connectFailed', function(error) {
     console.log('Connect Error: ' + error.toString());
 });
 
-client.connect('ws://localhost:8080/', 'echo-protocol');
+client.connect('ws://' + host + ':80/', 'echo-protocol');
 
 function getRandomInt (min, max) { //both inclusive
     return Math.floor(Math.random() * (max - min + 1)) + min;

@@ -1,16 +1,22 @@
-var argv = require('optimist').demand(['n', 's']).argv;
+var argv = require('optimist').demand(['n', 's', 'j']).argv;
 var WebSocketClient = require('websocket').client;
 var fs = require('fs');
+var gauss = require('gauss');
 
 var n = argv.n;
 var numberOfSubjectsPerClient = argv.s;
-var subjects = ['fun', 'movie', 'holiday', 'sport', 'tech', 'news',
-                'programming','computers', 'phones', 'relationships'];
-var stats = [];
+var subjects = [];
+for (var x = 0; x < argv.j; x++){
+    subjects.push('subject'+x);
+}
+
+var stats = new gauss.Vector();
 var countStats = 0;
 var connectionsFailed = 0;
 var connectionsClosed = 0;
 var waitingTimeBetweenConn = 10;
+var host = argv.l ? "localhost" : "ec2-54-228-39-121.eu-west-1.compute.amazonaws.com";
+
 start();
 
 var id = 0;
@@ -23,6 +29,10 @@ function start(){
             createClient(id);
             start();
             id++;
+        }
+        else{
+            stats = gauss.Vector();
+            log();
         }
     }, waitingTimeBetweenConn);
 }
@@ -55,28 +65,34 @@ function createClient(index){
         console.log('Connect failed on client ' + index + ". " + error.toString());
     });
 
-    client.connect('ws://localhost:8080/', 'echo-protocol');
+    client.connect('ws://' + host + ':80/', 'echo-protocol');
 }
 
-setTimeout(function log(){
+function log(){
     if(stats.length > 0){
-        var max = stats.reduce(function (p, v) {
-            return ( p > v ? p : v );
-        });
-        var min = stats.reduce(function (p, v) {
-            return ( p < v ? p : v );
-        });
-        var total = stats.reduce(function(previousValue, currentValue, index, array){
-          return previousValue + currentValue;
-        }, 0);
-        var mean = total / stats.length;
-        var data = [n, mean, max, min, stats.length, connectionsClosed, connectionsFailed].join(" ") + "\n";
-        fs.appendFile('stats.txt', data , function (err) {
+        // var max = stats.reduce(function (p, v) {
+        //     return ( p > v ? p : v );
+        // });
+        // var min = stats.reduce(function (p, v) {
+        //     return ( p < v ? p : v );
+        // });
+        // var total = stats.reduce(function(previousValue, currentValue, index, array){
+        //   return previousValue + currentValue;
+        // }, 0);
+        // var mean = total / stats.length;
+        var max = stats.max();
+        var min = stats.min();
+        var mean = stats.mean();
+        var stdev = stats.stdev();
+
+        var data = [n, mean, max, min, stdev, stats.length, connectionsClosed, connectionsFailed].join(" ") + "\n";
+        fs.appendFile('stats' + n + '-' + numberOfSubjectsPerClient + subjects.length + '.txt', data , function (err) {
             if (err) throw err;
                 console.log(data + "was appended to file!");
 
-            if((connectionsFailed === 0) && (connectionsClosed === 0) && (countStats < 6)){
+            if((connectionsFailed === 0) && (connectionsClosed === 0) && (countStats < 5)){
                 countStats++;
+                stats = new gauss.Vector();
                 setTimeout(log, 5000);
             }
             else{
@@ -85,7 +101,10 @@ setTimeout(function log(){
             }
         });
     }
-}, waitingTimeBetweenConn * n);
+    else{
+        setTimeout(log, 5000);
+    }
+}
 
 function getRandomSubjects(){
     var randomSubjects = [];
