@@ -1,10 +1,11 @@
-var argv = require('optimist').demand(['n', 's', 'j']).argv;
+var argv = require('optimist').demand(['s', 'j']).argv;
 var WebSocketClient = require('websocket').client;
 var fs = require('fs');
 var gauss = require('gauss');
+require('http').globalAgent.maxSockets = Infinity;
 
-var n = argv.n;
 var numberOfSubjectsPerClient = argv.s;
+var n = numberOfSubjectsPerClient * argv.j;
 var subjects = [];
 for (var x = 0; x < argv.j; x++){
     subjects.push('subject'+x);
@@ -15,7 +16,8 @@ var countStats = 0;
 var connectionsFailed = 0;
 var connectionsClosed = 0;
 var waitingTimeBetweenConn = 10;
-var host = argv.l ? "localhost" : "ec2-54-228-39-121.eu-west-1.compute.amazonaws.com";
+var host = argv.h || "localhost";
+var port = argv.p || "8080";
 
 start();
 
@@ -40,6 +42,7 @@ function start(){
 function createClient(index){
     var client = new WebSocketClient();
     var randomSubjects = getRandomSubjects();
+
     client.on('connect', function(connection) {
         console.log('WebSocket client connected ' + index);
         connection.on('error', function(error) {
@@ -65,7 +68,7 @@ function createClient(index){
         console.log('Connect failed on client ' + index + ". " + error.toString());
     });
 
-    client.connect('ws://' + host + ':80/', 'echo-protocol');
+    client.connect('ws://' + host + ':' + port + '/', 'echo-protocol');
 }
 
 function log(){
@@ -86,7 +89,7 @@ function log(){
         var stdev = stats.stdev();
 
         var data = [n, mean, max, min, stdev, stats.length, connectionsClosed, connectionsFailed].join(" ") + "\n";
-        fs.appendFile('stats' + n + '-' + numberOfSubjectsPerClient + subjects.length + '.txt', data , function (err) {
+        fs.appendFile('stats' + '-' + numberOfSubjectsPerClient + '-' + subjects.length + '.txt', data , function (err) {
             if (err) throw err;
                 console.log(data + "was appended to file!");
 
@@ -115,7 +118,7 @@ function getRandomSubjects(){
     }
 
     for (i = 0; i < numberOfSubjectsPerClient; i++) {
-        var rand = getRandomInt(i+1, arr.length-1);
+        var rand = getRandomInt(i, arr.length-1);
         var temp = arr[i];
         arr[i] = arr[rand];
         arr[rand] = temp;

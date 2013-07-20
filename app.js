@@ -22,28 +22,10 @@ server.listen(8080, function() {
 var publisher = redis.createClient(port, host);
 
 wsServer = new WebSocketServer({
-    httpServer: server,
-    // You should not use autoAcceptConnections for production
-    // applications, as it defeats all standard cross-origin protection
-    // facilities built into the protocol and the browser.  You should
-    // *always* verify the connection's origin and decide whether or not
-    // to accept it.
-    autoAcceptConnections: false
+    httpServer: server
 });
 
-function originIsAllowed(origin) {
-    // put logic here to detect whether the specified origin is allowed.
-    return true;
-}
-
 wsServer.on('request', function(request) {
-    if (!originIsAllowed(request.origin)) {
-        // Make sure we only accept requests from an allowed origin
-        request.reject();
-        console.log((new Date()) + ' Connection from origin ' + request.origin + ' rejected.');
-        return;
-    }
-
     var subscriber = redis.createClient(port, host);
 
     var connection = request.accept('echo-protocol', request.origin);
@@ -57,7 +39,7 @@ wsServer.on('request', function(request) {
     connection.on('message', function(message) {
         countReceived++;
         if (message.type === 'utf8') {
-            console.log('Received Message: ' + message.utf8Data);
+            //console.log('Received Message: ' + message.utf8Data);
             var data = JSON.parse(message.utf8Data);
             if(data.whois === "client"){
               subscriber.subscribe.apply(subscriber, data.subjectsToSubscribe);
@@ -70,6 +52,7 @@ wsServer.on('request', function(request) {
     connection.on('close', function(reasonCode, description) {
         connectedUsersCount--;
         console.log((new Date()) + ' Peer disconnected.');
+        console.log(connectedUsersCount+ ' users.');
         subscriber.end();
     });
 });
