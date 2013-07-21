@@ -9,7 +9,7 @@ var host = argv.h || "localhost";
 var port = argv.p || "8080";
 
 start();
-var waitingTimeBetweenConn = argv.v || 5;
+var waitingTimeBetweenConn = argv.d || 5;
 var waitingToStartTest = argv.w || (40 * n);
 var id = 0;
 var startPublishing = false;

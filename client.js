@@ -15,7 +15,7 @@ var stats = new gauss.Vector();
 var countStats = 0;
 var connectionsFailed = 0;
 var connectionsClosed = 0;
-var waitingTimeBetweenConn = argv.v || 10;
+var waitingTimeBetweenConn = argv.d || 10;
 var host = argv.h || "localhost";
 var port = argv.p || "8080";
 
