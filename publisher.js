@@ -9,8 +9,11 @@ var host = argv.h || "localhost";
 var port = argv.p || "8080";
 
 start();
-var waitingTimeBetweenConn = 5;
+var waitingTimeBetweenConn = argv.v || 5;
+var waitingToStartTest = argv.w || (40 * n);
 var id = 0;
+var startPublishing = false;
+
 function start(){
     // for (var i = 0; i < n; i++) {
     //    createPublisher(i);
@@ -20,10 +23,14 @@ function start(){
             createPublisher("subject" + id);
             id++;
             start();
+        }else{
+            setTimeout(setFlagToStartPublishing, waitingToStartTest);
         }
     }, waitingTimeBetweenConn);
 }
-
+function setFlagToStartPublishing(){
+    startPublishing = true;
+}
 function createPublisher(subject){
     var client = new WebSocketClient();
 
@@ -39,12 +46,14 @@ function createPublisher(subject){
         function updateSubject() {
             if (connection.connected) {
                 if(id == n){
-                    console.log('Sent: ' + subject);
-                    connection.sendUTF(JSON.stringify({
-                        subject: subject,
-                        message: +new Date(),
-                        whois: "publisher"
-                    }));
+                    if(startPublishing === true){
+                        console.log('Sent: ' + subject);
+                        connection.sendUTF(JSON.stringify({
+                            subject: subject,
+                            message: +new Date(),
+                            whois: "publisher"
+                        }));
+                    }
                 }
                 setTimeout(updateSubject, t);
             }

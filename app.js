@@ -11,10 +11,17 @@ var port = argv.p || 6379;
 var host = argv.h || "127.0.0.1";
 
 var server = http.createServer(function(request, response) {
+    request.socket.setNoDelay();
+
     console.log((new Date()) + ' Received request for ' + request.url);
     response.writeHead(404);
     response.end();
 });
+
+server.on("connection", function (socket) {
+  socket.setNoDelay(true);
+});
+
 server.listen(8080, function() {
     console.log((new Date()) + ' Server is listening on port 8080');
 });

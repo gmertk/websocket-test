@@ -15,7 +15,7 @@ var stats = new gauss.Vector();
 var countStats = 0;
 var connectionsFailed = 0;
 var connectionsClosed = 0;
-var waitingTimeBetweenConn = 10;
+var waitingTimeBetweenConn = argv.v || 10;
 var host = argv.h || "localhost";
 var port = argv.p || "8080";
 
@@ -96,7 +96,7 @@ function log(){
             if((connectionsFailed === 0) && (connectionsClosed === 0) && (countStats < 5)){
                 countStats++;
                 stats = new gauss.Vector();
-                setTimeout(log, 5000);
+                setTimeout(log, 10000);
             }
             else{
                 console.log("failed: " + connectionsFailed + "closed: " + connectionsClosed);
