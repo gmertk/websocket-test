@@ -74,9 +74,9 @@ var getCpuCommand = "ps -p " + process.pid + " -o %cpu,%mem";
 //Logger options
 logger.cli();
 logger.default.transports.console.timestamp = true;
-if(argv.o){
-  logger.add(logger.transports.File, { filename:  Date.now() + '.txt'});
-}
+// if(argv.o){
+//   logger.add(logger.transports.File, { filename:  Date.now() + '.txt'});
+// }
 
 
 
@@ -88,18 +88,19 @@ if(argv.o){
 // }
 
 if(argv.o){
-  setInterval(function() {
-    var auxReceived = Math.round(countReceived / connectedUsersCount);
-    var msuReceived = (connectedUsersCount > 0 ? auxReceived : 0);
+  log();
+
+}
+function log(){
+    // var auxReceived = Math.round(countReceived / connectedUsersCount);
+    // var msuReceived = (connectedUsersCount > 0 ? auxReceived : 0);
 
       var l = [
-        'U: ' + connectedUsersCount,
-        'MR/S: ' + countReceived,
-        'MR/S/U: ' + msuReceived
+        'U: ' + connectedUsersCount
       ];
 
       logger.info(l.join(',\t'));
-      countReceived = 0;
+      // countReceived = 0;
 
     // call a system command (ps) to get current process resources utilization
     /** /
@@ -120,5 +121,5 @@ if(argv.o){
       countReceived = 0;
     //});
 /**/
-  }, 1000);
+  setTimeout(log, 10000);
 }
