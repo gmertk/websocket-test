@@ -33,15 +33,11 @@ wsServer = new WebSocketServer({
 });
 
 wsServer.on('request', function(request) {
-    var subscriber = redis.createClient(port, host);
+    var subscriber;
 
     var connection = request.accept('echo-protocol', request.origin);
     console.log((new Date()) + ' Connection accepted.');
     connectedUsersCount++;
-
-    subscriber.on("message", function(channel, message){
-        connection.sendUTF(JSON.stringify({channel:channel, message:message}));
-    });
 
     connection.on('message', function(message) {
         countReceived++;
@@ -49,7 +45,11 @@ wsServer.on('request', function(request) {
             //console.log('Received Message: ' + message.utf8Data);
             var data = JSON.parse(message.utf8Data);
             if(data.whois === "client"){
+              subscriber = redis.createClient(port, host);
               subscriber.subscribe.apply(subscriber, data.subjectsToSubscribe);
+              subscriber.on("message", function(channel, message){
+                connection.sendUTF(JSON.stringify({channel:channel, message:message}));
+              });
             }
             else if (data.whois === "publisher"){
               publisher.publish(data.subject, data.message);
