@@ -99,7 +99,7 @@ function log(){
         'U: ' + connectedUsersCount
       ];
 
-      logger.info(l.join(',\t'));
+      console.log(l.join(',\t'));
       // countReceived = 0;
 
     // call a system command (ps) to get current process resources utilization
