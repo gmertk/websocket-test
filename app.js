@@ -60,7 +60,7 @@ wsServer.on('request', function(request) {
         connectedUsersCount--;
         console.log((new Date()) + ' Peer disconnected.');
         console.log(connectedUsersCount+ ' users.');
-        subscriber.end();
+        subscriber || subscriber.end();
     });
 });
 
