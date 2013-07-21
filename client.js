@@ -89,7 +89,7 @@ function log(){
         var stdev = stats.stdev();
 
         var data = [n, mean, max, min, stdev, stats.length, connectionsClosed, connectionsFailed].join(" ") + "\n";
-        fs.appendFile('stats' + '-' + numberOfSubjectsPerClient + '-' + subjects.length + '.txt', data , function (err) {
+        fs.appendFile('stats' + '-' + numberOfSubjectsPerClient + '-' + subjects.length + '-'+ new Date()+'.txt', data , function (err) {
             if (err) throw err;
                 console.log(data + "was appended to file!");
 
