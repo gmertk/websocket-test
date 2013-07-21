@@ -37,7 +37,8 @@ function createPublisher(subject){
     var client = new WebSocketClient();
 
     client.on('connect', function(connection) {
-        console.log(subject + " connected.");
+        //console.log(subject + " connected.");
+        console.log("instanceNo: " +  instanceNo + " id:" + subject);
         connection.on('error', function(error) {
             console.log("Connection Error: " + error.toString());
         });

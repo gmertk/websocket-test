@@ -45,9 +45,12 @@ function start(){
 function createClient(index){
     var client = new WebSocketClient();
     var randomSubjects = getRandomSubjects();
-
+    console.log("client with instanceno " + instanceNo + " has these random subjects");
+    for (var i = 0; i < randomSubjects.length; i++) {
+        console.log(randomSubjects[i]);
+    }
     client.on('connect', function(connection) {
-        console.log('WebSocket client connected ' + index);
+        console.log('WebSocket client connected instanceno: ' + instanceNo);
         connection.on('error', function(error) {
             console.log("Connection error on client "+ index + ". " + error.toString());
         });
