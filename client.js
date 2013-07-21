@@ -7,7 +7,10 @@ require('http').globalAgent.maxSockets = Infinity;
 var numberOfSubjectsPerClient = argv.s;
 var n = numberOfSubjectsPerClient * argv.j;
 var subjects = [];
-for (var x = 0; x < argv.j; x++){
+var instanceNo = argv.x;
+var startId = instanceNo * argv.j;
+
+for (var x = startId; x < argv.j + startId; x++){
     subjects.push('subject'+x);
 }
 

@@ -7,11 +7,13 @@ var n = argv.n;
 var publishers = [];
 var host = argv.h || "localhost";
 var port = argv.p || "8080";
+var instanceNo = argv.x;
+var startId = instanceNo * n;
 
 start();
 var waitingTimeBetweenConn = argv.d || 5;
 var waitingToStartTest = argv.w || (40 * n);
-var id = 0;
+var id = startId;
 var startPublishing = false;
 
 function start(){
@@ -19,8 +21,8 @@ function start(){
     //    createPublisher(i);
     // }
     setTimeout(function(){
-        if(id < n){
-            createPublisher("subject" + id);
+        if(id < startId + n){
+            createPublisher("subject" + id );
             id++;
             start();
         }else{
