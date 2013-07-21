@@ -72,6 +72,7 @@ function createClient(index){
 }
 
 function log(){
+    var filename = filename || ('stats' + '-' + numberOfSubjectsPerClient + '-' + subjects.length + '-'+ (+new Date())+'.txt');
     if(stats.length > 0){
         // var max = stats.reduce(function (p, v) {
         //     return ( p > v ? p : v );
@@ -89,7 +90,7 @@ function log(){
         var stdev = stats.stdev();
 
         var data = [n, mean, max, min, stdev, stats.length, connectionsClosed, connectionsFailed].join(" ") + "\n";
-        fs.appendFile('stats' + '-' + numberOfSubjectsPerClient + '-' + subjects.length + '-'+ new Date()+'.txt', data , function (err) {
+        fs.appendFile(filename, data , function (err) {
             if (err) throw err;
                 console.log(data + "was appended to file!");
 
