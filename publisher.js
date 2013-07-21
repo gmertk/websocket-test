@@ -48,7 +48,7 @@ function createPublisher(subject){
 
         function updateSubject() {
             if (connection.connected) {
-                if(id == n){
+                if(id == startId + n){
                     if(startPublishing === true){
                         console.log('Sent: ' + subject);
                         connection.sendUTF(JSON.stringify({
