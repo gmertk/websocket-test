@@ -71,8 +71,9 @@ function createClient(index){
     client.connect('ws://' + host + ':' + port + '/', 'echo-protocol');
 }
 
+var filename;
 function log(){
-    var filename = filename || ('stats' + '-' + numberOfSubjectsPerClient + '-' + subjects.length + '-'+ (+new Date())+'.txt');
+    filename = filename || ('stats' + '-' + numberOfSubjectsPerClient + '-' + subjects.length + '-'+ (+new Date())+'.txt');
     if(stats.length > 0){
         // var max = stats.reduce(function (p, v) {
         //     return ( p > v ? p : v );
