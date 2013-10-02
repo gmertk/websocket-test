@@ -17,6 +17,7 @@ var countReceived = 0;
 var countSent = 0;
 var isStarted = false;
 var statsArray = [];
+var statsProcTime = [];
 
 var server = http.createServer(function(request, response) {
     request.socket.setNoDelay();
@@ -55,7 +56,9 @@ wsServer.on('request', function(request) {
               subscriber.subscribe.apply(subscriber, data.subjectsToSubscribe);
               subscriber.on("message", function(channel, message){
                 countSent++;
-                connection.sendUTF(JSON.stringify({channel:channel, message:message}));
+                message = JSON.parse(message);
+                connection.sendUTF(JSON.stringify({channel:channel, message:message['m']}));
+                statsProcTime.push(+new Date() - parseInt(message.startTime, 10));
               });
             }
             else if (data.whois === "publisher"){
@@ -63,7 +66,8 @@ wsServer.on('request', function(request) {
               if (!isStarted) {
                 isStarted = true;
               }
-              publisher.publish(data.subject, data.message);
+              var publishedMessage = {"m": data.message, "startTime": +new Date()};
+              publisher.publish(data.subject, JSON.stringify(publishedMessage));
             }
         }
     });
@@ -131,6 +135,16 @@ function log(){
                 console.log("The file was saved!");
             }
         });
+
+        var procTimeOutput = statsProcTime.join(' ');
+        fs.writeFile("processingTimes" + Date.now() + ".out", procTimeOutput, function(err) {
+            statsProcTime = [];
+            if(err) {
+                console.log(err);
+            } else {
+                console.log("The file processing time was saved!");
+            }
+        });
       }
 
     // call a system command (ps) to get current process resources utilization
@@ -155,3 +169,4 @@ function log(){
   prevLog = +Date.now();
   setTimeout(log, 1000);
 }
+

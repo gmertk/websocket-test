@@ -18,7 +18,7 @@ var stats = new gauss.Vector();
 var countStats = 0;
 var connectionsFailed = 0;
 var connectionsClosed = 0;
-var waitingTimeBetweenConn = argv.d || 10;
+var waitingTimeBetweenConn = argv.d || 15;
 var host = argv.h || "localhost";
 var port = argv.p || "8080";
 
@@ -45,12 +45,12 @@ function start(){
 function createClient(index){
     var client = new WebSocketClient();
     var randomSubjects = getRandomSubjects();
-    console.log("client with instanceno " + instanceNo + " has these random subjects");
+    //console.log("client with instanceno " + instanceNo + " has these random subjects");
     for (var i = 0; i < randomSubjects.length; i++) {
         console.log(randomSubjects[i]);
     }
     client.on('connect', function(connection) {
-        console.log('WebSocket client connected instanceno: ' + instanceNo);
+        //console.log('WebSocket client connected instanceno: ' + instanceNo);
         connection.on('error', function(error) {
             console.log("Connection error on client "+ index + ". " + error.toString());
         });
@@ -73,7 +73,7 @@ function createClient(index){
         connectionsFailed++;
         console.log('Connect failed on client ' + index + ". " + error.toString());
     });
-
+console.log('ws://' + host + ':' + port + '/', 'echo-protocol');
     client.connect('ws://' + host + ':' + port + '/', 'echo-protocol');
 }
 
@@ -91,19 +91,22 @@ function log(){
         //   return previousValue + currentValue;
         // }, 0);
         // var mean = total / stats.length;
-        var max = stats.max();
-        var min = stats.min();
-        var mean = stats.mean();
-        var stdev = stats.stdev();
+        // var max = stats.max();
+        // var min = stats.min();
+        // var mean = stats.mean();
+        // var stdev = stats.stdev();
 
-        var data = [n, mean, max, min, stdev, stats.length, connectionsClosed, connectionsFailed].join(" ") + "\n";
+        // var data = [n, mean, max, min, stdev, stats.length, connectionsClosed, connectionsFailed].join(" ") + "\n";
+
+        var data = stats.join(" ");
+        stats = new gauss.Vector();
+
         fs.appendFile(filename, data , function (err) {
             if (err) throw err;
-                console.log(data + "was appended to file!");
 
-            if((connectionsFailed === 0) && (connectionsClosed === 0) && (countStats < 5)){
+            //if((connectionsFailed === 0) && (connectionsClosed === 0) && (countStats < 4)){
+            if((countStats < 7)){
                 countStats++;
-                stats = new gauss.Vector();
                 setTimeout(log, 10000);
             }
             else{

@@ -11,8 +11,8 @@ var instanceNo = argv.x;
 var startId = instanceNo * n;
 
 start();
-var waitingTimeBetweenConn = argv.d || 5;
-var waitingToStartTest = argv.w || (40 * n);
+var waitingTimeBetweenConn = argv.d || 15;
+var waitingToStartTest = argv.w || (6000);
 var id = startId;
 var startPublishing = false;
 
@@ -38,7 +38,7 @@ function createPublisher(subject){
 
     client.on('connect', function(connection) {
         //console.log(subject + " connected.");
-        console.log("instanceNo: " +  instanceNo + " id:" + subject);
+        //console.log("instanceNo: " +  instanceNo + " id:" + subject);
         connection.on('error', function(error) {
             console.log("Connection Error: " + error.toString());
         });
