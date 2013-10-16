@@ -1,4 +1,3 @@
-var argv = require('optimist').demand(['t', 'n']).argv;
 var WebSocketClient = require('websocket').client;
 require('http').globalAgent.maxSockets = Infinity;
 
@@ -52,9 +51,9 @@ function createPublisher(subject){
                     if(startPublishing === true){
                         console.log('Sent: ' + subject);
                         connection.sendUTF(JSON.stringify({
-                            subject: subject,
-                            message: +new Date(),
-                            whois: "publisher"
+                            type: "publisher",
+                            "object": subject,
+                            published: +new Date()
                         }));
                     }
                 }

@@ -1,13 +1,10 @@
-//Required Modules
-var logger = require('winston');
 var argv = require('optimist').argv;
-//var exec = require('child_process').exec;
+var toobusy = require('toobusy');
+var redis   = require('redis');
+var fs = require('fs');
 var http = require('http');
 http.globalAgent.maxSockets = Infinity;
 var WebSocketServer = require('websocket').server;
-var redis   = require('redis');
-var fs = require('fs');
-
 
 var port = argv.p || 6379;
 var host = argv.h || "127.0.0.1";
@@ -15,9 +12,11 @@ var host = argv.h || "127.0.0.1";
 var connectedUsersCount = 0;
 var countReceived = 0;
 var countSent = 0;
+
 var isStarted = false;
 var statsArray = [];
 var statsProcTime = [];
+var prevLog;
 
 var server = http.createServer(function(request, response) {
     request.socket.setNoDelay();
@@ -38,36 +37,61 @@ server.listen(8080, function() {
 var publisher = redis.createClient(port, host);
 
 wsServer = new WebSocketServer({
-    httpServer: server
+    httpServer: server,
+    keepalive: false
 });
 
 wsServer.on('request', function(request) {
     var subscriber;
 
     var connection = request.accept('echo-protocol', request.origin);
-    //console.log((new Date()) + ' Connection accepted.');
     connectedUsersCount++;
 
     connection.on('message', function(message) {
+        var tMessageReceived = Date.now();
         if (message.type === 'utf8') {
             var data = JSON.parse(message.utf8Data);
-            if(data.whois === "client"){
-              subscriber = redis.createClient(port, host);
-              subscriber.subscribe.apply(subscriber, data.subjectsToSubscribe);
-              subscriber.on("message", function(channel, message){
-                countSent++;
-                message = JSON.parse(message);
-                connection.sendUTF(JSON.stringify({channel:channel, message:message['m']}));
-                statsProcTime.push(+new Date() - parseInt(message.startTime, 10));
-              });
+            if(data.type === "client"){
+                subscriber = redis.createClient(port, host);
+                subscriber.subscribe.apply(subscriber, data["object"]);
+                subscriber.on("message", function(channel, message){
+                    var tMessageSubsCallback = Date.now();
+                    countSent++;
+                    message = JSON.parse(message);
+                    var tBeforeSent = Date.now();
+                    connection.sendUTF(JSON.stringify({channel:channel, message:message['m']}));
+                    var tAfterSent = Date.now();
+                    var lag = toobusy.lag();
+                    statsProcTime.push([tMessageSubsCallback, tBeforeSent, tAfterSent, parseInt(message.tMessageReceived, 10), parseInt(message.tMessagePublished, 10), lag]);
+                });
             }
-            else if (data.whois === "publisher"){
-              countReceived++;
-              if (!isStarted) {
-                isStarted = true;
-              }
-              var publishedMessage = {"m": data.message, "startTime": +new Date()};
-              publisher.publish(data.subject, JSON.stringify(publishedMessage));
+            else if (data.type === "publisher") {
+                countReceived++;
+                if (!isStarted) {
+                    isStarted = true;
+                    prevLog = Date.now();
+                    log();
+                }
+                var publishedMessage = {
+                    "m": data.published,
+                    "tMessagePublished": Date.now(),
+                    "tMessageReceived": tMessageReceived
+                };
+                publisher.publish(data["object"], JSON.stringify(publishedMessage));
+            }
+            else if (data.type === "testcontroller") {
+                if (data["object"] === "start") {
+
+                }
+                else if (data["object"] === "finish") {
+
+                }
+                else if (data["object"] === "next") {
+
+                }
+                else if (data["object"] === "shutdown") {
+
+                }
             }
         }
     });
@@ -81,54 +105,32 @@ wsServer.on('request', function(request) {
 
 //Variables
 var timeoutLogStatus = 1000;
-var getCpuCommand = "ps -p " + process.pid + " -o %cpu,%mem";
-
-//Logger options
-//logger.cli();
-//logger.default.transports.console.timestamp = true;
-// if(argv.o){
-//   logger.add(logger.transports.File, { filename:  Date.now() + '.txt'});
-// }
-
-
-
-// setTimeout(logStatus, timeoutLogStatus);
-// function logStatus() {
-//     setTimeout(logStatus, timeoutLogStatus);
-//     logger.info("users: " + connectedUsersCount + "\tmessagesPerSec: " + messagesPerSecond);
-//     messagesPerSecond = 0;
-// }
-
-if(argv.o){
-  var prevLog = +Date.now();
-  log();
-  // setInterval(log, 1000);
-}
 
 function log(){
-    // var auxReceived = Math.round(countReceived / connectedUsersCount);
-    // var msuReceived = (connectedUsersCount > 0 ? auxReceived : 0);
-      var now = +Date.now();
-      var logElapsed = now - prevLog;
-      var l = [
+    var now = Date.now();
+    var logElapsed = now - prevLog;
+    var l = [
         connectedUsersCount,
         countReceived,
         countSent,
         logElapsed
-      ];
+    ];
 
-      var output = l.join(' ');
-      console.log(output);
-      statsArray.push(output);
+    var output = l.join(' ');
+    if (argv.o) {
+        console.log(output);
+    }
+    statsArray.push(output);
 
-      countReceived = 0;
-      countSent = 0;
+    countReceived = 0;
+    countSent = 0;
 
-      if (connectedUsersCount <= 0 && isStarted) {
+    if (connectedUsersCount <= 0 && isStarted) {
         var fileOutput = statsArray.join('\n');
-        fs.writeFile("test" + Date.now() + ".out", fileOutput, function(err) {
+        statsArray = [];
+        var fileDate = Date.now();
+        fs.writeFile("events-" + fileDate + ".txt", fileOutput, function(err) {
             isStarted = false;
-            statsArray = [];
             if(err) {
                 console.log(err);
             } else {
@@ -137,36 +139,17 @@ function log(){
         });
 
         var procTimeOutput = statsProcTime.join(' ');
-        fs.writeFile("processingTimes" + Date.now() + ".out", procTimeOutput, function(err) {
-            statsProcTime = [];
+        statsProcTime = [];
+
+        fs.writeFile("processingTime-" + fileDate + ".txt", procTimeOutput, function(err) {
             if(err) {
                 console.log(err);
             } else {
                 console.log("The file processing time was saved!");
             }
         });
-      }
+    }
 
-    // call a system command (ps) to get current process resources utilization
-    /** /
-    var child = exec(getCpuCommand, function(error, stdout, stderr) {
-      var s = stdout.split(/\s+/);
-      var cpu = s[2];
-      var memory = s[3];
-
-      var l = [
-        'U: ' + connectedUsersCount,
-        'MR/S: ' + countReceived,
-        'MR/S/U: ' + msuReceived,
-        'CPU: ' + cpu,
-        'Mem: ' + memory
-      ];
-
-      logger.info(l.join(',\t'));
-      countReceived = 0;
-    //});
-/**/
-  prevLog = +Date.now();
-  setTimeout(log, 1000);
+    prevLog = Date.now();
+    setTimeout(log, timeoutLogStatus);
 }
-

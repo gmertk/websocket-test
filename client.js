@@ -66,7 +66,7 @@ function createClient(index){
                 stats.push(elapsed);
             }
         });
-        connection.sendUTF(JSON.stringify({whois:"client", subjectsToSubscribe:randomSubjects}));
+        connection.sendUTF(JSON.stringify({type:"client", object:randomSubjects}));
     });
 
     client.on('connectFailed', function(error) {
