@@ -18,16 +18,22 @@ var startId = instanceNo * n;
 
 var id = startId;
 var isPublishing = false;
-var stats = new gauss.Vector();
+var stats = [];
 var filename;
 var countSubs = 0;
 var countPubs = 0;
 var countFailedSubs = 0;
 var countFailedPubs = 0;
 
-var tTestDuration = 60000 * 1;
+var tTestDuration = 60000 * 2;
 
 start();
+
+// var testController = new WebSocketClient();
+// var testControllerConn;
+// testController.on('connect', function(connection) {
+//     testControllerConn = connection; 
+// });
 
 function start(){
     var numberOfPublishers = n;
@@ -57,11 +63,10 @@ function log(){
     filename = filename || ('responseTime-' + n + '-'+ Date.now() +'.txt');
     if (stats.length > 0){
         var data = stats.join(" ");
-        stats = new gauss.Vector();
+        stats = [];
 
         fs.appendFile(filename, data, function (err) {
             if (err) throw err;
-
             setTimeout(log, 10000);
         });
     }
@@ -91,7 +96,7 @@ function createPublisher(subject){
 
         function updateSubject() {
             if (connection.connected && isPublishing) {
-                console.log('Sent: ' + subject);
+                //console.log('Sent: ' + subject);
                 connection.sendUTF(JSON.stringify({
                     type: "publisher",
                     "object": subject,

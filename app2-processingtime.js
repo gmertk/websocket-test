@@ -17,6 +17,7 @@ var isStarted = false;
 var statsArray = [];
 var statsProcTime = [];
 var prevLog;
+var fileDate;
 
 var server = http.createServer(function(request, response) {
     request.socket.setNoDelay();
@@ -70,6 +71,9 @@ wsServer.on('request', function(request) {
                 if (!isStarted) {
                     isStarted = true;
                     prevLog = Date.now();
+                    setTimeout(eps, 1000);
+
+                    fileDate = Date.now();
                     log();
                 }
                 var publishedMessage = {
@@ -79,77 +83,72 @@ wsServer.on('request', function(request) {
                 };
                 publisher.publish(data["object"], JSON.stringify(publishedMessage));
             }
-            else if (data.type === "testcontroller") {
-                if (data["object"] === "start") {
-
-                }
-                else if (data["object"] === "finish") {
-
-                }
-                else if (data["object"] === "next") {
-
-                }
-                else if (data["object"] === "shutdown") {
-
-                }
-            }
         }
     });
     connection.on('close', function(reasonCode, description) {
         connectedUsersCount--;
-        console.log((new Date()) + ' Peer disconnected.');
-        console.log(connectedUsersCount + ' users.');
+        // console.log((new Date()) + ' Peer disconnected.');
+        // console.log(connectedUsersCount + ' users.');
         subscriber && subscriber.end();
     });
 });
 
 //Variables
-var timeoutLogStatus = 1000;
+var timeoutLogStatus = 10000;
 
-function log(){
-    var now = Date.now();
-    var logElapsed = now - prevLog;
-    var l = [
-        connectedUsersCount,
-        countReceived,
-        countSent,
-        logElapsed
-    ];
+function eps() {
+    if (countSent !== 0) {
+        var now = Date.now();
+        var logElapsed = now - prevLog;
+        var l = [
+            connectedUsersCount,
+            countReceived,
+            countSent,
+            logElapsed,
+        ];
 
-    var output = l.join(' ');
-    if (argv.o) {
-        console.log(output);
+        var output = l.join(' ');
+        if (argv.o) {
+            console.log(output);
+        }
+        statsArray.push(output);
     }
-    statsArray.push(output);
 
     countReceived = 0;
     countSent = 0;
 
-    if (connectedUsersCount <= 0 && isStarted) {
-        var fileOutput = statsArray.join('\n');
-        statsArray = [];
-        var fileDate = Date.now();
-        fs.writeFile("events-" + fileDate + ".txt", fileOutput, function(err) {
-            isStarted = false;
-            if(err) {
-                console.log(err);
-            } else {
-                console.log("The file was saved!");
-            }
-        });
-
-        var procTimeOutput = statsProcTime.join(' ');
-        statsProcTime = [];
-
-        fs.writeFile("processingTime-" + fileDate + ".txt", procTimeOutput, function(err) {
-            if(err) {
-                console.log(err);
-            } else {
-                console.log("The file processing time was saved!");
-            }
-        });
+    if (connectedUsersCount > 0) {
+        prevLog = Date.now();
+        setTimeout(eps, 1000);
     }
+}
 
-    prevLog = Date.now();
-    setTimeout(log, timeoutLogStatus);
+function log(){
+        if (statsArray.length > 0) {
+            var fileOutput = statsArray.join('\n') + '\n';
+            statsArray = [];
+            fs.appendFile("events-" + fileDate + ".txt", fileOutput, function(err) {
+                if(err) {
+                    console.log(err);
+                }
+            });
+        }
+
+        if (statsProcTime.length > 0) {
+            var procTimeOutput = statsProcTime.join(' ') + ' \n';
+            statsProcTime = [];
+
+            fs.appendFile("processingTime-" + fileDate + ".txt", procTimeOutput, function(err) {
+                if(err) {
+                    console.log(err);
+                }
+            });
+        }
+
+    if (connectedUsersCount <= 0) {
+        isStarted = false;
+    }
+    else {
+        setTimeout(log, timeoutLogStatus);
+    }
 }
