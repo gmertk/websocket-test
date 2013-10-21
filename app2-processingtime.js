@@ -1,3 +1,7 @@
+//require('strong-agent').profile();
+var util = require('util');
+var uvmon = require('nodefly-uvmon');
+
 var argv = require('optimist').argv;
 var toobusy = require('toobusy');
 var redis   = require('redis');
@@ -9,15 +13,19 @@ var WebSocketServer = require('websocket').server;
 var port = argv.p || 6379;
 var host = argv.h || "127.0.0.1";
 
+var timeoutLogStatus = 10000;
+
 var connectedUsersCount = 0;
 var countReceived = 0;
 var countSent = 0;
 
 var isStarted = false;
-var statsArray = [];
+var statsEvent = [];
 var statsProcTime = [];
+var statsUvmon = [];
 var prevLog;
 var fileDate;
+var idUvmon;
 
 var server = http.createServer(function(request, response) {
     request.socket.setNoDelay();
@@ -72,6 +80,9 @@ wsServer.on('request', function(request) {
                     isStarted = true;
                     prevLog = Date.now();
                     setTimeout(eps, 1000);
+                    idUvmon = setInterval(function() {
+                        statsUvmon.push(util.inspect(uvmon.getData()));
+                    }, 5000);
 
                     fileDate = Date.now();
                     log();
@@ -93,8 +104,6 @@ wsServer.on('request', function(request) {
     });
 });
 
-//Variables
-var timeoutLogStatus = 10000;
 
 function eps() {
     if (countSent !== 0) {
@@ -111,7 +120,7 @@ function eps() {
         if (argv.o) {
             console.log(output);
         }
-        statsArray.push(output);
+        statsEvent.push(output);
     }
 
     countReceived = 0;
@@ -124,29 +133,39 @@ function eps() {
 }
 
 function log(){
-        if (statsArray.length > 0) {
-            var fileOutput = statsArray.join('\n') + '\n';
-            statsArray = [];
-            fs.appendFile("events-" + fileDate + ".txt", fileOutput, function(err) {
-                if(err) {
-                    console.log(err);
-                }
-            });
-        }
+    if (statsEvent.length > 0) {
+        var fileOutput = statsEvent.join('\n') + '\n';
+        statsEvent = [];
+        fs.appendFile("events-" + fileDate + ".txt", fileOutput, function(err) {
+            if(err) {
+                console.log(err);
+            }
+        });
+    }
 
-        if (statsProcTime.length > 0) {
-            var procTimeOutput = statsProcTime.join(' ') + ' \n';
-            statsProcTime = [];
+    if (statsProcTime.length > 0) {
+        var procTimeOutput = statsProcTime.join(' ') + ' \n';
+        statsProcTime = [];
 
-            fs.appendFile("processingTime-" + fileDate + ".txt", procTimeOutput, function(err) {
-                if(err) {
-                    console.log(err);
-                }
-            });
-        }
+        fs.appendFile("processingTime-" + fileDate + ".txt", procTimeOutput, function(err) {
+            if(err) {
+                console.log(err);
+            }
+        });
+    }
 
+    if (statsUvmon.length > 0) {
+        var uvmonOutput = statsUvmon.join('\n') + '\n';
+        statsUvmon = [];
+        fs.appendFile("uvmon-" + fileDate + ".txt", uvmonOutput, function(err) {
+            if(err) {
+                console.log(err);
+            }
+        });
+    }
     if (connectedUsersCount <= 0) {
         isStarted = false;
+        clearTimeout(idUvmon);
     }
     else {
         setTimeout(log, timeoutLogStatus);

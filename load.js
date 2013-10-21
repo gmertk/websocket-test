@@ -25,7 +25,7 @@ var countPubs = 0;
 var countFailedSubs = 0;
 var countFailedPubs = 0;
 
-var tTestDuration = 60000 * 2;
+var tTestDuration = 5000;//60000 * 2;
 
 start();
 
@@ -37,9 +37,12 @@ start();
 
 function start(){
     var numberOfPublishers = n;
-    for (var j = 0; j < numberOfPublishers; j++) {
+    for (var j = 0; j < numberOfPublishers; j+=2) {
         createPublisher("subject" + j);
+        createPublisher("subject" + (j + 1));
+
         createSubscriber("subject" + j);
+        createSubscriber("subject" + (j + 1));
     }
     setTimeout(isAllConnected, 5000);
 }

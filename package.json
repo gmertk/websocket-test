@@ -6,9 +6,12 @@
     "start": "node app"
   },
   "dependencies": {
-    "winston": "",
-    "optimist": "",
-    "redis": "",
-    "websocket":""
+    "optimist": "0.6.0",
+    "redis": "0.8.4",
+    "hiredis": "0.1.15",
+    "websocket": "1.0.8",
+    "toobusy": "0.2.3",
+    "strong-agent": "0.2.15",
+    "gauss": "0.2.8"
   }
 }
