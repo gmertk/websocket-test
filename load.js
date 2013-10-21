@@ -25,7 +25,7 @@ var countPubs = 0;
 var countFailedSubs = 0;
 var countFailedPubs = 0;
 
-var tTestDuration = 5000;//60000 * 2;
+var tTestDuration = 60000 * 5;
 
 start();
 
