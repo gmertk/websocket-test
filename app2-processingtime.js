@@ -1,173 +1,165 @@
-//require('strong-agent').profile();
-var util = require('util');
-var uvmon = require('nodefly-uvmon');
+var cluster = require('cluster');
+var numCPUs = require('os').cpus().length;
+var logCount = 0;
 
-var argv = require('optimist').argv;
-var toobusy = require('toobusy');
-var redis   = require('redis');
-var fs = require('fs');
-var http = require('http');
-http.globalAgent.maxSockets = Infinity;
-var WebSocketServer = require('websocket').server;
+if (cluster.isMaster) {
+    for (var i = 0; i < numCPUs; i++) {
+        cluster.fork();
+    }
 
-var port = argv.p || 6379;
-var host = argv.h || "127.0.0.1";
+    cluster.on('exit', function(worker, code, signal) {
+        console.log('worker ' + worker.process.pid + ' died');
+    });
+} else {
+    var util = require('util');
+    var uvmon = require('nodefly-uvmon');
+    var argv = require('optimist').argv;
+    var toobusy = require('toobusy');
+    var redis   = require('redis');
+    var fs = require('fs');
+    var http = require('http');
+    http.globalAgent.maxSockets = Infinity;
+    var WebSocketServer = require('websocket').server;
 
-var timeoutLogStatus = 10000;
+    var port = argv.p || 6379;
+    var host = argv.h || "127.0.0.1";
 
-var connectedUsersCount = 0;
-var countReceived = 0;
-var countSent = 0;
+    var timeoutLogStatus = 10000;
 
-var isStarted = false;
-var statsEvent = [];
-var statsProcTime = [];
-var statsUvmon = [];
-var prevLog;
-var fileDate;
-var idUvmon;
+    var connectedUsersCount = 0;
+    var countReceived = 0;
+    var countSent = 0;
 
-var server = http.createServer(function(request, response) {
-    request.socket.setNoDelay();
+    var isStarted = false;
+    var statsEvent = [];
+    var statsProcTime = [];
+    var statsUvmon = [];
+    var idUvmon;
 
-    console.log((new Date()) + ' Received request for ' + request.url);
-    response.writeHead(404);
-    response.end();
-});
+    var server = http.createServer(function(request, response) {
+        request.socket.setNoDelay();
 
-server.on("connection", function (socket) {
-  socket.setNoDelay(true);
-});
+        console.log((new Date()) + ' Received request for ' + request.url);
+        response.writeHead(404);
+        response.end();
+    });
 
-server.listen(8080, function() {
-    console.log((new Date()) + ' Server is listening on port 8080');
-});
+    server.on("connection", function (socket) {
+      socket.setNoDelay(true);
+    });
 
-var publisher = redis.createClient(port, host);
+    server.listen(8080, function() {
+        console.log((new Date()) + ' Server is listening on port 8080');
+    });
 
-wsServer = new WebSocketServer({
-    httpServer: server,
-    keepalive: false
-});
+    var publisher = redis.createClient(port, host);
 
-wsServer.on('request', function(request) {
-    var subscriber;
-
-    var connection = request.accept('echo-protocol', request.origin);
-    connectedUsersCount++;
-
-    connection.on('message', function(message) {
-        var tMessageReceived = Date.now();
-        if (message.type === 'utf8') {
-            var data = JSON.parse(message.utf8Data);
-            if(data.type === "client"){
-                subscriber = redis.createClient(port, host);
-                subscriber.subscribe.apply(subscriber, data["object"]);
-                subscriber.on("message", function(channel, message){
-                    var tMessageSubsCallback = Date.now();
-                    countSent++;
-                    message = JSON.parse(message);
-                    var tBeforeSent = Date.now();
-                    connection.sendUTF(JSON.stringify({channel:channel, message:message['m']}));
-                    var tAfterSent = Date.now();
-                    var lag = toobusy.lag();
-                    statsProcTime.push([tMessageSubsCallback, tBeforeSent, tAfterSent, parseInt(message.tMessageReceived, 10), parseInt(message.tMessagePublished, 10), lag]);
-                });
-            }
-            else if (data.type === "publisher") {
-                countReceived++;
-                if (!isStarted) {
-                    isStarted = true;
-                    prevLog = Date.now();
-                    setTimeout(eps, 1000);
-                    idUvmon = setInterval(function() {
-                        statsUvmon.push(util.inspect(uvmon.getData()));
-                    }, 5000);
-
-                    fileDate = Date.now();
-                    log();
+    var log = function(){
+        if (statsEvent.length > 0) {
+            var fileOutput = statsEvent.join('\n') + ' \n';
+            statsEvent = [];
+            
+            fs.appendFile("eventTimes-" + logCount + ".txt", fileOutput, function(err) {
+                if(err) {
+                    console.log(err);
                 }
-                var publishedMessage = {
-                    "m": data.published,
-                    "tMessagePublished": Date.now(),
-                    "tMessageReceived": tMessageReceived
-                };
-                publisher.publish(data["object"], JSON.stringify(publishedMessage));
-            }
+            });
         }
-    });
-    connection.on('close', function(reasonCode, description) {
-        connectedUsersCount--;
-        // console.log((new Date()) + ' Peer disconnected.');
-        // console.log(connectedUsersCount + ' users.');
-        subscriber && subscriber.end();
-    });
-});
 
+        if (statsProcTime.length > 0) {
+            var procTimeOutput = statsProcTime.join(' ') + ' \n';
+            statsProcTime = [];
 
-function eps() {
-    if (countSent !== 0) {
-        var now = Date.now();
-        var logElapsed = now - prevLog;
-        var l = [
-            connectedUsersCount,
-            countReceived,
-            countSent,
-            logElapsed,
-        ];
-
-        var output = l.join(' ');
-        if (argv.o) {
-            console.log(output);
+            fs.appendFile("procTimes-" + logCount + ".txt", procTimeOutput, function(err) {
+                if(err) {
+                    console.log(err);
+                }
+            });
         }
-        statsEvent.push(output);
-    }
 
-    countReceived = 0;
-    countSent = 0;
+        if (statsUvmon.length > 0) {
+            var uvmonOutput = statsUvmon.join('\n') + '\n';
+            statsUvmon = [];
+            fs.appendFile("uvmon-" + logCount + ".txt", uvmonOutput, function(err) {
+                if(err) {
+                    console.log(err);
+                }
+            });
+        }
+        if (connectedUsersCount <= 0) {
+            isStarted = false;
+            clearTimeout(idUvmon);
+            logCount += 1;
+            
+            console.log("finished");
+        }
+        else {
+            setTimeout(log, timeoutLogStatus);
+        }
+    };
 
-    if (connectedUsersCount > 0) {
-        prevLog = Date.now();
-        setTimeout(eps, 1000);
-    }
-}
+    wsServer = new WebSocketServer({
+        httpServer: server,
+        keepalive: false
+    });
 
-function log(){
-    if (statsEvent.length > 0) {
-        var fileOutput = statsEvent.join('\n') + '\n';
-        statsEvent = [];
-        fs.appendFile("events-" + fileDate + ".txt", fileOutput, function(err) {
-            if(err) {
-                console.log(err);
+    wsServer.on('request', function(request) {
+        var subscriber;
+
+        var connection = request.accept('echo-protocol', request.origin);
+        connectedUsersCount++;
+
+        connection.on('message', function(message) {
+            var tMessageReceived = Date.now();
+            if (message.type === 'utf8') {
+                var data = JSON.parse(message.utf8Data);
+                if(data.type === "client"){
+                    subscriber = redis.createClient(port, host);
+                    subscriber.subscribe.apply(subscriber, data["object"]);
+                    subscriber.on("message", function(channel, message){
+                        var tMessageSubsCallback = Date.now();
+                        countSent++;
+                        message = JSON.parse(message);
+                        var tBeforeSent = Date.now();
+                        connection.sendUTF(JSON.stringify({channel:channel, message:message['m']}));
+                        var tAfterSent = Date.now();
+                        var lag = toobusy.lag();
+                        statsProcTime.push([tMessageSubsCallback, tBeforeSent, tAfterSent,
+                            parseInt(message.tMessageReceived, 10), parseInt(message.tMessagePublished, 10),
+                            lag, cluster.worker.id]);
+                    });
+                }
+                else if (data.type === "publisher") {
+                    countReceived++;
+                    statsEvent.push(Date.now());
+
+                    if (!isStarted) {
+                        isStarted = true;
+                        
+                        idUvmon = setInterval(function() {
+                            statsUvmon.push(util.inspect(uvmon.getData()) + " " + cluster.worker.id);
+                        }, 5000);
+                        
+                        setTimeout(log, timeoutLogStatus);
+
+                    }
+                    var publishedMessage = {
+                        "m": data.published,
+                        "tMessagePublished": Date.now(),
+                        "tMessageReceived": tMessageReceived
+                    };
+                    publisher.publish(data["object"], JSON.stringify(publishedMessage));
+                }
             }
         });
-    }
-
-    if (statsProcTime.length > 0) {
-        var procTimeOutput = statsProcTime.join(' ') + ' \n';
-        statsProcTime = [];
-
-        fs.appendFile("processingTime-" + fileDate + ".txt", procTimeOutput, function(err) {
-            if(err) {
-                console.log(err);
-            }
+        connection.on('close', function(reasonCode, description) {
+            connectedUsersCount--;
+            // console.log((new Date()) + ' Peer disconnected.');
+            // console.log(connectedUsersCount + ' users.');
+            subscriber && subscriber.end();
         });
-    }
+    });
 
-    if (statsUvmon.length > 0) {
-        var uvmonOutput = statsUvmon.join('\n') + '\n';
-        statsUvmon = [];
-        fs.appendFile("uvmon-" + fileDate + ".txt", uvmonOutput, function(err) {
-            if(err) {
-                console.log(err);
-            }
-        });
-    }
-    if (connectedUsersCount <= 0) {
-        isStarted = false;
-        clearTimeout(idUvmon);
-    }
-    else {
-        setTimeout(log, timeoutLogStatus);
-    }
+
+
 }

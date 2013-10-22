@@ -65,7 +65,7 @@ function finishTests() {
 function log(){
     filename = filename || ('responseTime-' + n + '-'+ Date.now() +'.txt');
     if (stats.length > 0){
-        var data = stats.join(" ");
+        var data = stats.join(" ") + " ";
         stats = [];
 
         fs.appendFile(filename, data, function (err) {
