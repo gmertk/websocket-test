@@ -11,7 +11,7 @@
     "hiredis": "0.1.15",
     "websocket": "1.0.8",
     "toobusy": "0.2.3",
-    "strong-agent": "0.2.15",
+    "nodefly-uvmon": "0.0.7",
     "gauss": "0.2.8"
   }
 }
