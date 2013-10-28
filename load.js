@@ -1,150 +1,162 @@
 #!/usr/bin/env node
+var fileDate = parseInt(Date.now()/10000, 10);
+var cluster = require('cluster');
+var numCPUs = require('os').cpus().length;
 
-var argv = require('optimist').demand(['t', 'n']).argv;
-var WebSocketClient = require('websocket').client;
-var fs = require('fs');
-var gauss = require('gauss');
-require('http').globalAgent.maxSockets = Infinity;
-
-var sendingPeriod = argv.t * 1000;
-var n = argv.n;
-var doubleN = 2 * n;
-var instanceNo = argv.x;
-
-var host = argv.h || "localhost";
-var port = argv.p || "8080";
-
-var startId = instanceNo * n;
-
-var id = startId;
-var isPublishing = false;
-var stats = [];
-var filename;
-var countSubs = 0;
-var countPubs = 0;
-var countFailedSubs = 0;
-var countFailedPubs = 0;
-
-var tTestDuration = 60000 * 5;
-
-start();
-
-// var testController = new WebSocketClient();
-// var testControllerConn;
-// testController.on('connect', function(connection) {
-//     testControllerConn = connection; 
-// });
-
-function start(){
-    var numberOfPublishers = n;
-    for (var j = 0; j < numberOfPublishers; j+=2) {
-        createPublisher("subject" + j);
-        createPublisher("subject" + (j + 1));
-
-        createSubscriber("subject" + j);
-        createSubscriber("subject" + (j + 1));
+if (cluster.isMaster) {
+    for (var i = 0; i < numCPUs; i++) {
+        cluster.fork();
     }
-    setTimeout(isAllConnected, 5000);
+
+    cluster.on('exit', function(worker, code, signal) {
+        console.log('worker ' + worker.process.pid + ' died');
+    });
 }
+else{
+    var argv = require('optimist').demand(['t', 'n']).argv;
+    var WebSocketClient = require('websocket').client;
+    var fs = require('fs');
+    var gauss = require('gauss');
+    require('http').globalAgent.maxSockets = Infinity;
 
-function isAllConnected() {
-    if (countSubs + countPubs + countFailedPubs + countFailedSubs >= doubleN) {
-        isPublishing = true;
-        setTimeout(finishTests, tTestDuration);
-        setTimeout(log, 10000);
-    }
-    else {
-        setTimeout(isAllConnected, 5000);
-    }
-}
+    var sendingPeriod = argv.t * 1000;
+    var n = parseInt(argv.n, 10);
+    var nPerCore = parseInt(n / numCPUs, 10);
+    var doubleNPerCore = 2 * nPerCore;
+    var instanceNo = argv.x;
+    var host = argv.h || "localhost";
+    var port = argv.p || "8080";
 
-function finishTests() {
-    isPublishing = false;
-}
+    var startId = cluster.worker.id * nPerCore;
 
-function log(){
-    filename = filename || ('responseTime-' + n + '-'+ Date.now() +'.txt');
-    if (stats.length > 0){
-        var data = stats.join(" ") + " ";
-        stats = [];
+    var isPublishing = false;
+    var stats = [];
+    var filename;
+    var countSubs = 0;
+    var countPubs = 0;
+    var countFailedSubs = 0;
+    var countFailedPubs = 0;
 
-        fs.appendFile(filename, data, function (err) {
-            if (err) throw err;
-            setTimeout(log, 10000);
-        });
-    }
-    else if (isPublishing) {
-        setTimeout(log, 10000);
-    }
-    else {
-        var out = "pubs:" + countPubs + ":subs:" + countSubs;
-        fs.appendFile("connectedClients-" + Date.now() +".txt", out, function (err) {
-            if (err) throw err;
-            process.exit();
-        });
-    }
-}
+    var tTestDuration = 60000 * 5;
 
-function createPublisher(subject){
-    var client = new WebSocketClient();
+    start();
 
-    client.on('connect', function(connection) {
-        countPubs += 1;
-        connection.on('error', function(error) {
-            console.log("Connection Error: " + error.toString());
-        });
-        connection.on('close', function() {
-            console.log('Connection Closed');
-        });
+    // var testController = new WebSocketClient();
+    // var testControllerConn;
+    // testController.on('connect', function(connection) {
+    //     testControllerConn = connection; 
+    // });
 
-        function updateSubject() {
-            if (connection.connected && isPublishing) {
-                //console.log('Sent: ' + subject);
-                connection.sendUTF(JSON.stringify({
-                    type: "publisher",
-                    "object": subject,
-                    published: +new Date()
-                }));
-            }
+    function start(){
+        var idLimit = startId + nPerCore;
+        for (var j = startId; j < idLimit; j+=1) {
+            createPublisher("subject" + j);
+            // createPublisher("subject" + (j + 1));
+
+            createSubscriber("subject" + j);
+            // createSubscriber("subject" + (j + 1));
         }
+        setTimeout(isAllConnected, 20000);
+    }
 
-		setInterval(updateSubject, sendingPeriod);
-    });
+    function isAllConnected() {
+        if (countSubs + countPubs + countFailedPubs + countFailedSubs >= doubleNPerCore) {
+            isPublishing = true;
+            setTimeout(finishTests, tTestDuration);
+            setTimeout(log, 10000);
+        }
+        else {
+            setTimeout(isAllConnected, 5000);
+        }
+    }
 
-    client.on('connectFailed', function(error) {
-        countFailedPubs += 1;
-        console.log('Connect Error: ' + error.toString());
-    });
-    client.connect('ws://' + host + ':' + port + '/', 'echo-protocol');
-}
+    function finishTests() {
+        isPublishing = false;
+    }
 
-function createSubscriber(subject){
-    var client = new WebSocketClient();
+    function log(){
+        filename = filename || ('responseTime-' + n + '-'+ fileDate +'.txt');
+        if (stats.length > 0){
+            var data = stats.join("\n") + "\n";
+            stats = [];
 
-    client.on('connect', function(connection) {
-        countSubs += 1;
-        connection.on('error', function(error) {
-            console.log("Connection error on client "+ subject + ". " + error.toString());
-        });
-        connection.on('close', function() {
-            console.log('Connection Closed with description ' + connection.closeDescription);
-        });
-        connection.on('message', function(message) {
-            if (message.type === 'utf8') {
-                var data = JSON.parse(message.utf8Data);
-                var elapsed = Date.now() - data.message;
-                stats.push(elapsed);
+            fs.appendFile(filename, data, function (err) {
+                if (err) throw err;
+                setTimeout(log, 10000);
+            });
+        }
+        else if (isPublishing) {
+            setTimeout(log, 10000);
+        }
+        else {
+            var out = "pubs:" + countPubs + ":subs:" + countSubs;
+            fs.appendFile("connectedClients-" + fileDate +".txt", out, function (err) {
+                if (err) throw err;
+                process.exit();
+            });
+        }
+    }
+
+    function createPublisher(subject){
+        var client = new WebSocketClient();
+
+        client.on('connect', function(connection) {
+            countPubs += 1;
+            connection.on('error', function(error) {
+                console.log("Connection Error: " + error.toString());
+            });
+            connection.on('close', function() {
+                console.log('Connection Closed');
+            });
+
+            function updateSubject() {
+                if (connection.connected && isPublishing) {
+                    //console.log('Sent: ' + subject);
+                    connection.sendUTF(JSON.stringify({
+                        type: "publisher",
+                        "object": subject,
+                        published: +new Date()
+                    }));
+                }
             }
-        });
-        connection.sendUTF(JSON.stringify({
-            type: "client",
-            object: [subject]
-        }));
-    });
 
-    client.on('connectFailed', function(error) {
-        countFailedSubs += 1;
-        console.log('Connect failed on client ' + subject + ". " + error.toString());
-    });
-    client.connect('ws://' + host + ':' + port + '/', 'echo-protocol');
+    		setInterval(updateSubject, sendingPeriod);
+        });
+
+        client.on('connectFailed', function(error) {
+            countFailedPubs += 1;
+            console.log('Connect Error: ' + error.toString());
+        });
+        client.connect('ws://' + host + ':' + port + '/', 'echo-protocol');
+    }
+
+    function createSubscriber(subject){
+        var client = new WebSocketClient();
+
+        client.on('connect', function(connection) {
+            countSubs += 1;
+            connection.on('error', function(error) {
+                console.log("Connection error on client "+ subject + ". " + error.toString());
+            });
+            connection.on('close', function() {
+                console.log('Connection Closed with description ' + connection.closeDescription);
+            });
+            connection.on('message', function(message) {
+                if (message.type === 'utf8') {
+                    var data = JSON.parse(message.utf8Data);
+                    stats.push(data.message + " " + Date.now() + " " + cluster.worker.id);
+                }
+            });
+            connection.sendUTF(JSON.stringify({
+                type: "client",
+                object: [subject]
+            }));
+        });
+
+        client.on('connectFailed', function(error) {
+            countFailedSubs += 1;
+            console.log('Connect failed on client ' + subject + ". " + error.toString());
+        });
+        client.connect('ws://' + host + ':' + port + '/', 'echo-protocol');
+    }
 }
