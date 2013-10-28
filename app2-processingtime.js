@@ -1,5 +1,5 @@
 var cluster = require('cluster');
-var numCPUs = require('os').cpus().length;
+var numCPUs = 2;//require('os').cpus().length;
 var logCount = 0;
 
 if (cluster.isMaster) {
@@ -67,7 +67,7 @@ if (cluster.isMaster) {
         }
 
         if (statsProcTime.length > 0) {
-            var procTimeOutput = statsProcTime.join(' ') + ' \n';
+            var procTimeOutput = statsProcTime.join('\n') + ' \n';
             statsProcTime = [];
 
             fs.appendFile("procTimes-" + logCount + ".txt", procTimeOutput, function(err) {
@@ -126,7 +126,7 @@ if (cluster.isMaster) {
                         var lag = toobusy.lag();
                         statsProcTime.push([tMessageSubsCallback, tBeforeSent, tAfterSent,
                             parseInt(message.tMessageReceived, 10), parseInt(message.tMessagePublished, 10),
-                            lag, cluster.worker.id]);
+                            lag, cluster.worker.id].join(' '));
                     });
                 }
                 else if (data.type === "publisher") {
