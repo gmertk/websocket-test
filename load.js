@@ -64,6 +64,7 @@ else{
             isPublishing = true;
             setTimeout(finishTests, tTestDuration);
             setTimeout(log, 10000);
+            console.log("start");
         }
         else {
             setTimeout(isAllConnected, 5000);
