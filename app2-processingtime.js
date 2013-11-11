@@ -110,22 +110,22 @@ if (cluster.isMaster) {
         connectedUsersCount++;
 
         connection.on('message', function(message) {
-            var tMessageReceived = Date.now();
+            var tMessageReceived = process.hrtime();
             if (message.type === 'utf8') {
                 var data = JSON.parse(message.utf8Data);
                 if(data.type === "client"){
                     subscriber = redis.createClient(port, host);
                     subscriber.subscribe.apply(subscriber, data["object"]);
                     subscriber.on("message", function(channel, message){
-                        var tMessageSubsCallback = Date.now();
+                        var tMessageSubsCallback = process.hrtime();
                         countSent++;
                         message = JSON.parse(message);
-                        var tBeforeSent = Date.now();
+                        var tBeforeSent = process.hrtime();
                         connection.sendUTF(JSON.stringify({channel:channel, message:message['m']}));
-                        var tAfterSent = Date.now();
+                        var tAfterSent = process.hrtime();
                         var lag = toobusy.lag();
                         statsProcTime.push([tMessageSubsCallback, tBeforeSent, tAfterSent,
-                            parseInt(message.tMessageReceived, 10), parseInt(message.tMessagePublished, 10),
+                            message.tMessageReceived, message.tMessagePublished,
                             lag, cluster.worker.id].join(' '));
                     });
                 }
@@ -145,7 +145,7 @@ if (cluster.isMaster) {
                     }
                     var publishedMessage = {
                         "m": data.published,
-                        "tMessagePublished": Date.now(),
+                        "tMessagePublished": process.hrtime(),
                         "tMessageReceived": tMessageReceived
                     };
                     publisher.publish(data["object"], JSON.stringify(publishedMessage));
